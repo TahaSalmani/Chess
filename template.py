@@ -6,6 +6,7 @@ from src.Chess import logger
 project_name = "Chess"
 
 list_of_files = [
+".github/workflows/ci.yaml",
 f"src/{project_name}/__init__.py",
 f"src/{project_name}/components/__init__.py",
 f"src/{project_name}/utils/__init__.py",

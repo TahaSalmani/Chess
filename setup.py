@@ -8,7 +8,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 __version__ = "0.0.0"
 Repo_Name = "Chess"
 Author_NAME = "tahasalmani"
-SRC_REPO = "Chess"
+SRC_REPO = "Chess_Deeplearning"
 AUTHOR_EMAIL = "the.taha.salmani@gmail.com"
 
 setuptools.setup(
