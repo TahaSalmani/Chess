@@ -1,0 +1,8 @@
+artifacts_root : artifacts
+
+data_ingestion :
+  root_dir: artifacts/data_ingestion
+  source_file: artifacts/lichess_db_standard_rated_2013-06.pgn
+  local_data_file: artifacts/data_ingestion/raw_games.pgn
+  source_URL : https://database.lichess.org/standard/lichess_db_standard_rated_2013-06.pgn.zst
+  unzip_dir : artifacts/Data
