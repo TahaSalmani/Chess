@@ -6,3 +6,8 @@ data_ingestion :
   local_data_file: artifacts/data_ingestion/raw_games.pgn
   source_URL : https://database.lichess.org/standard/lichess_db_standard_rated_2013-06.pgn.zst
   unzip_dir : artifacts/Data
+
+data_validation :
+  root_dir : artifacts/data_validation
+  source_file : artifacts/Data/raw_games.pgn
+  status_file : artifacts/data_validation/status.txt

@@ -1,5 +1,5 @@
 from Chess.utils.common import read_yaml , create_directories
-from Chess.entity.config_entity import  DataIngestionConfig
+from Chess.entity.config_entity import  DataIngestionConfig , DataValidationConfig
 from Chess.constants import Params_File_Path , Config_File_Path
 from pathlib import Path
 
@@ -24,5 +24,16 @@ class ConfigurationManager :
         )
         return data_ingestion_config
 
+    def get_data_validation_config(self)-> DataValidationConfig:
+        config = self.config.data_validation
+
+        create_directories([config.root_dir])
+
+        data_validation_config = DataValidationConfig(
+            source_file=Path(config.source_file),
+            root_dir=Path(config.root_dir),
+            status_file = Path(config.status_file)
+        )
+        return data_validation_config
 
 
