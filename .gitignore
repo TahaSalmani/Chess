@@ -228,3 +228,4 @@ venv/
 
 # Datasets
 artifacts/*
+!artifacts/**/*.dvc

@@ -1,0 +1,5 @@
+outs:
+- md5: 62b4297c6527bc2603ccd48db84532f8
+  size: 32917532
+  hash: md5
+  path: raw_games.pgn
