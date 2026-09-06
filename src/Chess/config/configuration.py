@@ -1,5 +1,5 @@
 from Chess.utils.common import read_yaml , create_directories
-from Chess.entity.config_entity import  DataIngestionConfig , DataValidationConfig
+from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig , DataTransformationConfig
 from Chess.constants import Params_File_Path , Config_File_Path
 from pathlib import Path
 
@@ -35,5 +35,17 @@ class ConfigurationManager :
             status_file = Path(config.status_file)
         )
         return data_validation_config
+
+
+    def get_data_transformation_config(self)-> DataTransformationConfig:
+        config = self.config.data_transformation
+        create_directories([config.root_dir])
+        data_transformation_config = DataTransformationConfig(
+            root_dir = Path(config.root_dir),
+            data_path=Path(config.data_path),
+            status_file = Path(config.status_file) ,
+            transformed_data_dir = Path(config.transformed_data_dir),
+        )
+        return data_transformation_config
 
 

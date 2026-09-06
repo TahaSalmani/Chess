@@ -11,3 +11,9 @@ data_validation :
   root_dir : artifacts/data_validation
   source_file : artifacts/Data/raw_games.pgn
   status_file : artifacts/data_validation/status.txt
+
+data_transformation :
+  status_file: artifacts/data_validation/status.txt
+  root_dir : artifacts/data_transformation
+  data_path : artifacts/Data/raw_games.pgn
+  transformed_data_dir: artifacts/data_transformation/processed
