@@ -1,6 +1,7 @@
 import os
 import logging
 import sys
+from Chess.utils.common import *
 
 logging_str = "[%(asctime)s %(levelname)s %(module)s  %(message)s])]"
 log_dir = "logs"

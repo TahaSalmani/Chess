@@ -1,5 +1,5 @@
 from Chess.utils.common import read_yaml , create_directories
-from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig , DataTransformationConfig ,PrepareBaseModelConfig
+from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig , DataTransformationConfig ,PrepareBaseModelConfig , PrepareTrainingConfig
 from Chess.constants import Params_File_Path , Config_File_Path
 from pathlib import Path
 
@@ -9,6 +9,7 @@ class ConfigurationManager :
     params_file_path = Params_File_Path ) :
         self.config = read_yaml(config_file_path)
         self.params = read_yaml(params_file_path)
+
         create_directories([self.config.artifacts_root])
 
     def get_data_ingestion_config(self) -> DataIngestionConfig :
@@ -64,3 +65,23 @@ class ConfigurationManager :
         )
         return base_model_config
 
+    def get_train_model(self) -> PrepareTrainingConfig:
+        config = self.config.prepare_train_model
+        params = self.params
+
+        create_directories([Path(config.root_dir)])
+
+        prepare_train_config = PrepareTrainingConfig(
+            root_dir=Path(config.root_dir),
+            trained_model_path=Path(config.trained_model_path),
+            updated_base_model_path=Path(config.updated_base_model_path),
+            transformed_x_path=Path(config.transformed_x_path),
+            transformed_y_path=Path(config.transformed_y_path),
+            params_epochs=params.EPOCHS,
+            params_batch_size=params.BATCH_SIZE,
+            params_shuffle=params.SHUFFLE,
+            params_validation_split=params.VALIDATION_SPLIT,
+            params_learning_rate=params.LEARNING_RATE,
+        )
+
+        return prepare_train_config

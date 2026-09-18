@@ -1,4 +1,4 @@
-from Chess import logger
+from src.Chess import logger
 from src.Chess.components.prepare_base_model import PrepareBaseModel
 from src.Chess.config.configuration import ConfigurationManager
 

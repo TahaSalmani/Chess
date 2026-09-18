@@ -1,12 +1,11 @@
 import os
 import yaml
-from Chess import logger
 from ensure import ensure_annotations
 from box import ConfigBox
 from box.exceptions import BoxValueError
 from pathlib import Path
-
-
+import logging
+logger = logging.getLogger("ChessLogger")
 @ensure_annotations
 def read_yaml(path: Path) ->ConfigBox :
     try :
