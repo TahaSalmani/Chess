@@ -1,5 +1,5 @@
 from Chess.utils.common import read_yaml , create_directories
-from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig , DataTransformationConfig
+from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig , DataTransformationConfig ,PrepareBaseModelConfig
 from Chess.constants import Params_File_Path , Config_File_Path
 from pathlib import Path
 
@@ -48,4 +48,19 @@ class ConfigurationManager :
         )
         return data_transformation_config
 
+    def get_base_model(self)-> PrepareBaseModelConfig :
+        config = self.config.prepare_base_Model
+        params = self.params
+        create_directories([config.root_dir])
+
+        base_model_config = PrepareBaseModelConfig(
+            model_path=Path(config.model_path),
+            params_image_size=self.params.IMAGE_SIZE,
+            params_learning_rate=self.params.LEARNING_RATE,
+            params_classes=self.params.CLASSES ,
+            root_dir=Path(config.root_dir),
+            updated_base_model_path=Path(config.updated_base_model_path),
+
+        )
+        return base_model_config
 

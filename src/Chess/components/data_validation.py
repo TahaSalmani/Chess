@@ -3,6 +3,8 @@ from Chess import logger
 import os
 from pathlib import Path
 from Chess.entity.config_entity import DataValidationConfig
+import json
+from datetime import datetime
 
 
 class DataValidation:
@@ -27,6 +29,14 @@ class DataValidation:
                     validation_status = True
                 else:
                     validation_status = False
+            status_data = {
+                "validation_status" : validation_status,
+                "Checked_Time" : datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+
+            }
+
+            with open (self.config.status_file, "w", encoding="utf-8") as status_file :
+                json.dump(status_data, status_file, indent=4)
 
             with open (self.config.status_file , 'w') as status_file:
                 status_file.write(f"status is {validation_status}")

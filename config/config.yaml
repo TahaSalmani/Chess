@@ -10,10 +10,17 @@ data_ingestion :
 data_validation :
   root_dir : artifacts/data_validation
   source_file : artifacts/Data/raw_games.pgn
-  status_file : artifacts/data_validation/status.txt
+  status_file : artifacts/data_validation/status.json
 
 data_transformation :
-  status_file: artifacts/data_validation/status.txt
+  status_file: artifacts/data_validation/status.json
   root_dir : artifacts/data_transformation
   data_path : artifacts/Data/raw_games.pgn
   transformed_data_dir: artifacts/data_transformation/processed
+
+prepare_base_Model :
+  root_dir : artifacts/prepare_base_model
+  model_path : artifacts/prepare_base_model/model.h5
+  updated_base_model_path: artifacts/prepare_base_model/base_model_updated.h5
+
+

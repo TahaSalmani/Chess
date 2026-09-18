@@ -26,6 +26,7 @@ class DataTransformation:
         X = []
         Y = []
         game_count  = 0
+
         with open(self.config.status_file) as file:
             status = file.read().split()[-1].strip()
 

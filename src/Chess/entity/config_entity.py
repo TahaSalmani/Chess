@@ -20,5 +20,13 @@ class DataTransformationConfig :
     data_path: Path
     status_file : Path
     transformed_data_dir : Path
-
+@dataclass(frozen=True)
+class PrepareBaseModelConfig :
+    root_dir: Path
+    model_path: Path
+    updated_base_model_path: Path
+    params_image_size: list
+    params_learning_rate: float
+    params_classes: int
+    updated_base_model_path: Path
 
