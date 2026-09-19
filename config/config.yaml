@@ -35,7 +35,7 @@ evaluate_base_model :
   trained_model_path: artifacts/prepare_callbacks/trained_model.h5
   evaluated_model_path : artifacts/evaluate/evaluated_base_model/evaluated_base_model.h5
 
-  source_URL : .
+  source_URL : https://database.lichess.org/standard/lichess_db_standard_rated_2016-02.pgn.zst
   unzip_dir : artifacts/evaluate/Data  #UNZIP DIR
   local_data_file  : artifacts/evaluate/Data_Ingestion #Download DIR
 
