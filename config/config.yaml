@@ -32,19 +32,8 @@ prepare_train_model:
 
 evaluate_base_model :
   root_dir : artifacts/evaluate
-  trained_model_path: artifacts/prepare_callbacks/trained_model.h5
-  evaluated_model_path : artifacts/evaluate/evaluated_base_model/evaluated_base_model.h5
-
-  source_URL : https://database.lichess.org/standard/lichess_db_standard_rated_2016-02.pgn.zst
-  unzip_dir : artifacts/evaluate/Data  #UNZIP DIR
-  local_data_file  : artifacts/evaluate/Data_Ingestion #Download DIR
-
-  source_file : artifacts/evaluate/Data
-  status_file  : artifacts/evaluate/data_validation/status.json
-
-  data_path : artifacts/evaluate/Data
-  transformed_data_dir: artifacts/data_transformation/processed
-
   evaluate_scores : artifacts/evaluate/scores
-
+  trained_model_path: artifacts/prepare_callbacks/trained_model.h5
+  transformed_x_path: artifacts/data_transformation/processed/X.npy
+  transformed_y_path: artifacts/data_transformation/processed/Y.npy
 

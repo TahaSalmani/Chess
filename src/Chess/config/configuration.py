@@ -88,33 +88,18 @@ class ConfigurationManager :
         return prepare_train_config
 
     def get_evaluation_model(self)-> PrepareEvaluationConfig:
-        config = self.config.prepare_evaluation_model
+        config = self.config.evaluate_base_model
         params = self.params
 
         create_directories([
-            config.root_dir,
-            Path(config.evaluated_model_path).parent,
-            config.evaluation_Unzip_Data,
-            config.evaluate_Downloaded_Data,
-            config.evaluate_validation_dir,
-            config.evaluate_transformation ,
-            config.evaluate_scores
+            config.root_dir
         ])
         prepare_evaluation_config = PrepareEvaluationConfig(
             root_dir=Path(config.root_dir),
             trained_model_path=Path(config.trained_model_path),
-            evaluated_model_path=Path(config.evaluated_model_path),
-
-            source_file =config.source_file,
-            local_data_file = config.local_data_file,
-            unzip_dir = Path(config.unzip_dir),
-            source_URL=config.source_URL,
-            status_file=Path(config.status_file) ,
-
-            data_path=Path(config.data_path),
-            transformed_data_dir=Path(config.transformed_data_dir),
-
-            evaluate_scores = Path(config.evaluate_scores),
+            transformed_x_path=Path(config.transformed_x_path),
+            transformed_y_path=Path(config.transformed_y_path),
+            evaluate_scores=Path(config.evaluate_scores)
 
         )
         return prepare_evaluation_config

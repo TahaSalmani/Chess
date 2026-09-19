@@ -1,4 +1,3 @@
-# src/Chess/pipeline/stage_06_ModelEvaluation.py
 
 from Chess.config.configuration import ConfigurationManager
 from Chess.components.data_ingestion import DataIngestion
