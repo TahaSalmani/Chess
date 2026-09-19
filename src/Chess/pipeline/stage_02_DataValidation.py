@@ -1,7 +1,7 @@
 from Chess import logger
-from src.Chess.entity.config_entity import DataValidationConfig
-from src.Chess.components.data_validation import DataValidation
-from src.Chess.config.configuration import ConfigurationManager
+from Chess.entity.config_entity import DataValidationConfig
+from Chess.components.data_validation import DataValidation
+from Chess.config.configuration import ConfigurationManager
 
 STAGE_NAME = "DataValidation"
 class DataValidationPipeline:

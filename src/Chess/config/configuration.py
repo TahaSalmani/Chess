@@ -1,5 +1,6 @@
 from Chess.utils.common import read_yaml , create_directories
-from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig , DataTransformationConfig ,PrepareBaseModelConfig , PrepareTrainingConfig
+from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig, \
+    DataTransformationConfig, PrepareBaseModelConfig, PrepareTrainingConfig, PrepareEvaluationConfig , PrepareEvaluationConfig
 from Chess.constants import Params_File_Path , Config_File_Path
 from pathlib import Path
 
@@ -85,3 +86,35 @@ class ConfigurationManager :
         )
 
         return prepare_train_config
+
+    def get_evaluation_model(self)-> PrepareEvaluationConfig:
+        config = self.config.prepare_evaluation_model
+        params = self.params
+
+        create_directories([
+            config.root_dir,
+            Path(config.evaluated_model_path).parent,
+            config.evaluation_Unzip_Data,
+            config.evaluate_Downloaded_Data,
+            config.evaluate_validation_dir,
+            config.evaluate_transformation ,
+            config.evaluate_scores
+        ])
+        prepare_evaluation_config = PrepareEvaluationConfig(
+            root_dir=Path(config.root_dir),
+            trained_model_path=Path(config.trained_model_path),
+            evaluated_model_path=Path(config.evaluated_model_path),
+
+            source_file =config.source_file,
+            local_data_file = config.local_data_file,
+            unzip_dir = Path(config.unzip_dir),
+            source_URL=config.source_URL,
+            status_file=Path(config.status_file) ,
+
+            data_path=Path(config.data_path),
+            transformed_data_dir=Path(config.transformed_data_dir),
+
+            evaluate_scores = Path(config.evaluate_scores),
+
+        )
+        return prepare_evaluation_config

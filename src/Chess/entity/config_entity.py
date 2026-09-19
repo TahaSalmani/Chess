@@ -41,4 +41,23 @@ class PrepareTrainingConfig :
     params_shuffle: bool
     params_validation_split: float
     params_learning_rate: float
+@dataclass(frozen=True)
+class PrepareEvaluationConfig :
+    root_dir: Path
+    trained_model_path: Path
+    evaluated_model_path: Path
+
+    source_URL: str
+    unzip_dir : Path
+    local_data_file : Path
+
+    source_file : Path
+    status_file : Path
+
+    data_path: Path
+
+    transformed_data_dir : Path
+
+
+    evaluate_scores : Path
 

@@ -1,6 +1,6 @@
-from src.Chess import logger
-from src.Chess.components.prepare_base_model import PrepareBaseModel
-from src.Chess.config.configuration import ConfigurationManager
+from Chess import logger
+from Chess.components.prepare_base_model import PrepareBaseModel
+from Chess.config.configuration import ConfigurationManager
 
 class PrepareBaseModelPipeline:
     def __init__(self):

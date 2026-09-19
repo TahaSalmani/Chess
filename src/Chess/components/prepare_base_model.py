@@ -2,7 +2,7 @@ import os
 
 import tensorflow as tf
 from tensorflow.keras import layers
-from src.Chess.config.configuration import PrepareBaseModelConfig
+from Chess.config.configuration import PrepareBaseModelConfig
 from pathlib import Path
 
 
