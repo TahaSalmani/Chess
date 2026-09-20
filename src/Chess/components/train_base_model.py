@@ -1,10 +1,10 @@
 import tensorflow as tf
 import numpy as np
-from src.Chess.config.configuration import PrepareTrainingConfig
-from src.Chess.components.prepare_base_model import PrepareBaseModel
-# from src.Chess.components.data_transformation import
+from Chess.config.configuration import PrepareTrainingConfig
+from Chess.components.prepare_base_model import PrepareBaseModel
+
 import os
-from  src.Chess import logger
+from  Chess import logger
 
 class TrainBaseModel:
     def __init__(self , config: PrepareTrainingConfig):

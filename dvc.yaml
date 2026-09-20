@@ -1,12 +1,12 @@
 stages:
-  data_ingestion :
-    cmd :
-      - python src/Chess/pipeline/stage_01_DataIngestion.py
-    deps :
+  data_ingestion:
+    cmd: python src/Chess/pipeline/stage_01_DataIngestion.py
+    deps:
       - src/Chess/pipeline/stage_01_DataIngestion.py
       - config/config.yaml
-    outs :
+    outs:
       - artifacts/Data/raw_games.pgn
+
   data_validation:
     cmd: python src/Chess/pipeline/stage_02_DataValidation.py
     deps:
@@ -15,20 +15,19 @@ stages:
       - config/config.yaml
 
   data_transformation:
-      cmd: python src/Chess/pipeline/stage_03_DataTransformation.py
-      deps:
-        - src/Chess/pipeline/stage_03_DataTransformation.py
-        - artifacts/Data/raw_games.pgn
-        - config/config.yaml
-      outs:
-        - artifacts/data_transformation/X.npy
-        - artifacts/data_transformation/Y.npy
+    cmd: python src/Chess/pipeline/stage_03_DataTransformation.py
+    deps:
+      - src/Chess/pipeline/stage_03_DataTransformation.py
+      - artifacts/Data/raw_games.pgn
+      - config/config.yaml
+    outs:
+      - artifacts/data_transformation/processed/X.npy
+      - artifacts/data_transformation/processed/Y.npy
 
   prepare_base_Model:
-    cmd:
-      - python src/Chess/pipelien/stage_04_PrepareBaseModel
+    cmd: python src/Chess/pipeline/stage_04_PrepareBaseModel.py
     deps:
-      - src/Chess/pipelien/stage_04_PrepareBaseModel.py
+      - src/Chess/pipeline/stage_04_PrepareBaseModel.py
       - config/config.yaml
       - params.yaml
     outs:
@@ -39,3 +38,19 @@ stages:
       - CLASSES
       - LEARNING_RATE
 
+  prepare_train_model:
+    cmd: python src/Chess/pipeline/stage_05_TrainModel.py
+    deps:
+      - src/Chess/pipeline/stage_05_TrainModel.py
+      - config/config.yaml
+      - artifacts/data_transformation/processed/X.npy
+      - artifacts/data_transformation/processed/Y.npy
+      - artifacts/prepare_base_model/base_model_updated.h5
+    params:
+      - EPOCHS
+      - BATCH_SIZE
+      - SHUFFLE
+      - VALIDATION_SPLIT
+      - LEARNING_RATE
+    outs:
+      - artifacts/prepare_callbacks/trained_model.h5

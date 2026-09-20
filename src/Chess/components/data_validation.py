@@ -5,10 +5,11 @@ from pathlib import Path
 from Chess.entity.config_entity import DataValidationConfig
 import json
 from datetime import datetime
-
+from typing import Union
+from Chess.entity.config_entity import PrepareEvaluationConfig
 
 class DataValidation:
-    def __init__(self , config : DataValidationConfig):
+    def __init__(self , config : Union[DataValidationConfig , PrepareEvaluationConfig ]):
         self.config = config
 
 

@@ -4,9 +4,11 @@ import chess.pgn as pgn
 from Chess import logger
 from Chess.entity.config_entity import DataTransformationConfig
 import numpy as np
+from typing import Union
+from Chess.entity.config_entity import PrepareEvaluationConfig
 
 class DataTransformation:
-    def __init__(self , config :DataTransformationConfig):
+    def __init__(self , config :Union[DataTransformationConfig , PrepareEvaluationConfig ]):
         self.config = config
 
     def board_to_matrix(self, board: chess.Board):
@@ -22,7 +24,7 @@ class DataTransformation:
 
         return matrix
 
-    def transform_pgn_to_numpy(self):
+    def transform_pgn_to_numpy(self , pgn_file_path: str = None):
         X = []
         Y = []
         game_count  = 0
@@ -35,7 +37,7 @@ class DataTransformation:
             raise Exception("Invalid status file")
 
         os.makedirs(self.config.transformed_data_dir , exist_ok=True)
-        max_games = 100
+        max_games = 5000
         with open (self.config.data_path  , encoding="utf-8") as pgn_file :
             while game_count < max_games :
                 game_file = pgn.read_game(pgn_file)
@@ -63,4 +65,5 @@ class DataTransformation:
 
 
             logger.info(f"Added Successfully {game_count} games ")
+            return  x_arr, y_arr
 

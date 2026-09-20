@@ -1,1 +1,1 @@
-from src.Chess.utils.common import *
+from Chess.utils.common import *

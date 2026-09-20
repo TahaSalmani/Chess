@@ -30,5 +30,10 @@ prepare_train_model:
   transformed_x_path: artifacts/data_transformation/X.npy
   transformed_y_path: artifacts/data_transformation/Y.npy
 
-
+evaluate_base_model :
+  root_dir : artifacts/evaluate
+  evaluate_scores : artifacts/evaluate/scores
+  trained_model_path: artifacts/prepare_callbacks/trained_model.h5
+  transformed_x_path: artifacts/data_transformation/processed/X.npy
+  transformed_y_path: artifacts/data_transformation/processed/Y.npy
 

@@ -2,13 +2,13 @@ import os
 import urllib.request as request
 import zstandard as zstd
 from pathlib import Path
-
+from typing import Union
 from Chess import logger
 from Chess.entity.config_entity import DataIngestionConfig
-
+from Chess.entity.config_entity import PrepareEvaluationConfig
 
 class DataIngestion:
-    def __init__(self, config: DataIngestionConfig):
+    def __init__(self, config: Union[DataIngestionConfig, PrepareEvaluationConfig]):
         self.config = config
 
     def download_file(self):
@@ -34,5 +34,5 @@ class DataIngestion:
         with open(self.config.local_data_file, "rb") as compressed_file:
             with open(output_pgn_file, "wb") as decompressed_file:
                 dctx.copy_stream(compressed_file, decompressed_file)
-
         logger.info(f"Extracted ZST file successfully to {output_pgn_file}")
+        return self.config.unzip_dir
