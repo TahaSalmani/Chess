@@ -22,10 +22,12 @@ class ModelEvaluate:
         self.score = model.evaluate(X_test, y_test)
         self.save_score()
 
-    def save_score(self):
 
+    def save_score(self):
         scores = {"loss": self.score[0], "accuracy": self.score[1]}
-        save_path = Path("scores.json")
+
+        save_path = self.config.evaluate_scores
+
         with open(save_path, "w") as f:
             json.dump(scores, f, indent=4)
 

@@ -37,7 +37,7 @@ class DataTransformation:
             raise Exception("Invalid status file")
 
         os.makedirs(self.config.transformed_data_dir , exist_ok=True)
-        max_games = 1000
+        max_games = 5000
         with open (self.config.data_path  , encoding="utf-8") as pgn_file :
             while game_count < max_games :
                 game_file = pgn.read_game(pgn_file)
