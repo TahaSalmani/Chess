@@ -2,67 +2,57 @@ stages:
   data_ingestion:
     cmd: python src/Chess/pipeline/stage_01_DataIngestion.py
     deps:
-      - src/Chess/pipeline/stage_01_DataIngestion.py
-      - config/config.yaml
+    - src/Chess/pipeline/stage_01_DataIngestion.py
+    - config/config.yaml
     outs:
-      - artifacts/Data/raw_games.pgn
+    - artifacts/Data/raw_games.pgn
 
   data_validation:
     cmd: python src/Chess/pipeline/stage_02_DataValidation.py
     deps:
-      - src/Chess/pipeline/stage_02_DataValidation.py
-      - artifacts/Data/raw_games.pgn
-      - config/config.yaml
-
-  data_transformation:
-    cmd: python src/Chess/pipeline/stage_03_DataTransformation.py
-    deps:
-      - src/Chess/pipeline/stage_03_DataTransformation.py
-      - artifacts/Data/raw_games.pgn
-      - config/config.yaml
-    outs:
-      - artifacts/data_transformation/processed/X.npy
-      - artifacts/data_transformation/processed/Y.npy
+    - src/Chess/pipeline/stage_02_DataValidation.py
+    - artifacts/Data/raw_games.pgn
+    - config/config.yaml
 
   prepare_base_Model:
     cmd: python src/Chess/pipeline/stage_04_PrepareBaseModel.py
     deps:
-      - src/Chess/pipeline/stage_04_PrepareBaseModel.py
-      - config/config.yaml
-      - params.yaml
+    - src/Chess/pipeline/stage_04_PrepareBaseModel.py
+    - config/config.yaml
+    - params.yaml
     outs:
-      - artifacts/prepare_base_model/base_model_updated.h5
-      - artifacts/prepare_base_model/model.h5
+    - artifacts/prepare_base_model/base_model_updated.h5
+    - artifacts/prepare_base_model/model.h5
     params:
-      - IMAGE_SIZE
-      - CLASSES
-      - LEARNING_RATE
+    - IMAGE_SIZE
+    - CLASSES
+    - LEARNING_RATE
 
   prepare_train_model:
     cmd: python src/Chess/pipeline/stage_05_TrainModel.py
     deps:
-      - src/Chess/pipeline/stage_05_TrainModel.py
-      - config/config.yaml
-      - artifacts/data_transformation/processed/X.npy
-      - artifacts/data_transformation/processed/Y.npy
-      - artifacts/prepare_base_model/base_model_updated.h5
+    - src/Chess/pipeline/stage_05_TrainModel.py
+    - config/config.yaml
+    - artifacts/data_transformation/processed/X.npy
+    - artifacts/data_transformation/processed/Y.npy
+    - artifacts/prepare_base_model/base_model_updated.h5
     params:
-      - EPOCHS
-      - BATCH_SIZE
-      - SHUFFLE
-      - VALIDATION_SPLIT
-      - LEARNING_RATE
+    - EPOCHS
+    - BATCH_SIZE
+    - SHUFFLE
+    - VALIDATION_SPLIT
+    - LEARNING_RATE
     outs:
-      - artifacts/prepare_callbacks/trained_model.h5
+    - artifacts/prepare_callbacks/trained_model.h5
 
-  evaluate_base_model :
+  evaluate_base_model:
     cmd: python src/Chess/pipeline/stage_06_ModelEvaluation
-    deps :
-      - python src/Chess/pipeline/stage_06_ModelEvaluation
-      - config/config.yaml
-      - artifacts/data_transformation/processed/X.npy
-      - artifacts/data_transformation/processed/Y.npy
-      - artifacts/prepare_callbacks/trained_model.h5
+    deps:
+    - python src/Chess/pipeline/stage_06_ModelEvaluation
+    - config/config.yaml
+    - artifacts/data_transformation/processed/X.npy
+    - artifacts/data_transformation/processed/Y.npy
+    - artifacts/prepare_callbacks/trained_model.h5
     outs:
-      - artifacts/evaluate/scores
+    - artifacts/evaluate/scores
 

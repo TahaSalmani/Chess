@@ -31,30 +31,6 @@ stages:
       hash: md5
       md5: d4f2c6d0910770f7c8555991f5ea8030
       size: 898
-  data_transformation:
-    cmd: python src/Chess/pipeline/stage_03_DataTransformation.py
-    deps:
-    - path: artifacts/Data/raw_games.pgn
-      hash: md5
-      md5: 7fc7732d0a1bdfed9a23d1baa319bec1
-      size: 171556640
-    - path: config/config.yaml
-      hash: md5
-      md5: 033792a27383dfc3098d9abd6cb4c382
-      size: 1572
-    - path: src/Chess/pipeline/stage_03_DataTransformation.py
-      hash: md5
-      md5: 12f5726ecac820e07f00bbe7fa913b29
-      size: 918
-    outs:
-    - path: artifacts/data_transformation/processed/X.npy
-      hash: md5
-      md5: 35894e6bd399b6be70aa20dd2cf1f528
-      size: 255426944
-    - path: artifacts/data_transformation/processed/Y.npy
-      hash: md5
-      md5: f3052a394455265fa4b9ec7fca901c39
-      size: 2660824
   prepare_base_Model:
     cmd: python src/Chess/pipeline/stage_04_PrepareBaseModel.py
     deps:
