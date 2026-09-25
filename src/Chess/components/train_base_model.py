@@ -34,10 +34,10 @@ class TrainBaseModel:
 
     def get_Data(self):
         x_numpy = os.path.join(
-            "artifacts", "data_transformation", "processed", "X.npy"
+            "artifacts", "data_transformation", "X_train.npy"
         )
         y_numpy = os.path.join(
-            "artifacts", "data_transformation", "processed", "Y.npy"
+            "artifacts", "data_transformation",  "y_train.npy"
         )
         x = np.load(x_numpy)
         y = np.load(y_numpy)
