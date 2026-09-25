@@ -48,3 +48,18 @@ class PrepareEvaluationConfig :
     transformed_x_path: Path
     transformed_y_path: Path
     evaluate_scores: Path
+@dataclass(frozen=True)
+class PrepareRlEnvConfig :
+    board_cols : int
+    board_rows : int
+    pieces_type : int
+    action_space_size : int
+    reward : dict
+@dataclass(frozen=True)
+class PrepareRlLearnConfig :
+    verbose : bool
+    learning_rate : float
+    total_timesteps : int
+    root_dir : Path
+    tensorboard_log_dir: Path
+

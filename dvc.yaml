@@ -54,3 +54,15 @@ stages:
       - LEARNING_RATE
     outs:
       - artifacts/prepare_callbacks/trained_model.h5
+
+  evaluate_base_model :
+    cmd: python src/Chess/pipeline/stage_06_ModelEvaluation
+    deps :
+      - python src/Chess/pipeline/stage_06_ModelEvaluation
+      - config/config.yaml
+      - artifacts/data_transformation/processed/X.npy
+      - artifacts/data_transformation/processed/Y.npy
+      - artifacts/prepare_callbacks/trained_model.h5
+    outs:
+      - artifacts/evaluate/scores
+

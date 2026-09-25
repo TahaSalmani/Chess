@@ -1,6 +1,6 @@
 from Chess.utils.common import read_yaml , create_directories
 from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig, \
-    DataTransformationConfig, PrepareBaseModelConfig, PrepareTrainingConfig, PrepareEvaluationConfig , PrepareEvaluationConfig
+    DataTransformationConfig, PrepareBaseModelConfig, PrepareTrainingConfig, PrepareEvaluationConfig , PrepareEvaluationConfig , PrepareRlEnvConfig , PrepareRlLearnConfig
 from Chess.constants import Params_File_Path , Config_File_Path
 from pathlib import Path
 
@@ -103,3 +103,27 @@ class ConfigurationManager :
 
         )
         return prepare_evaluation_config
+    def get_Rl_env (self ) -> PrepareRlEnvConfig:
+        config = self.config.prepare_rl_env
+        prepare_rl_env_config = PrepareRlEnvConfig(
+            board_cols=config.board_cols,
+            board_rows=config.board_rows,
+            pieces_type=config.pieces_type,
+            action_space_size=config.action_space_size,
+            reward=config.reward,
+        )
+        return prepare_rl_env_config
+
+    def get_prepare_rl_learn(self)-> PrepareRlLearnConfig :
+        config = self.config.rl_train
+        create_directories([config.root_dir])
+        prepare_rl_learn_config = PrepareRlLearnConfig(
+            verbose=config.verbose,
+            learning_rate=config.learning_rate,
+            total_timesteps=config.total_timesteps,
+            root_dir=Path(config.root_dir),
+            tensorboard_log_dir=Path(config.tensorboard_log_dir),
+        )
+        return prepare_rl_learn_config
+
+

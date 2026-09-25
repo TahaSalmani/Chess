@@ -20,7 +20,7 @@ class ModelEvaluate:
 
         logger.info("Evaluating model on test dataset...")
         self.score = model.evaluate(X_test, y_test)
-        self.save_score()
+
 
 
     def save_score(self):

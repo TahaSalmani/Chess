@@ -38,6 +38,7 @@ class EvaluationPipeline:
         eval_config = config_manager.get_evaluation_model()
         model_evaluator = ModelEvaluate(config=eval_config)
         model_evaluator.evaluation(X_test, y_test)
+        model_evaluator.save_score()
 
 
 if __name__ == '__main__':

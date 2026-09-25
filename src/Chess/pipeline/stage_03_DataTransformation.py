@@ -12,7 +12,7 @@ class DataTransformationPipeline:
         config = ConfigurationManager()
         transformation_config = config.get_data_transformation_config()
         data_transformation = DataTransformation(config = transformation_config)
-        data_transformation.transform_pgn_to_numpy()
+        data_transformation.initiate_data_transformation()
 
 
 

@@ -27,8 +27,8 @@ prepare_train_model:
   root_dir: artifacts/prepare_callbacks
   trained_model_path: artifacts/prepare_callbacks/trained_model.h5
   updated_base_model_path: artifacts/prepare_base_model/base_model_updated.h5
-  transformed_x_path: artifacts/data_transformation/X.npy
-  transformed_y_path: artifacts/data_transformation/Y.npy
+  transformed_x_path: artifacts/data_transformation/processed/X.npy
+  transformed_y_path: artifacts/data_transformation/processed/Y.npy
 
 evaluate_base_model :
   root_dir : artifacts/evaluate
@@ -36,4 +36,26 @@ evaluate_base_model :
   trained_model_path: artifacts/prepare_callbacks/trained_model.h5
   transformed_x_path: artifacts/data_transformation/processed/X.npy
   transformed_y_path: artifacts/data_transformation/processed/Y.npy
+
+rl_environment :
+  board_cols : 8
+  board_row : 8
+  pieces_type : 12
+  action_space_size : 4096
+  reward :
+    checkmate: 100.0
+    illegal_move: -10.0
+    draw: 0.0
+    step_penalty: 0.1
+
+rl_train :
+  root_dir : artifacts/rl_model/ppo_chess
+  verbose : 1
+  learning_rate : 0.001
+  total_timesteps : 10000
+  tensorboard_log_dir: "artifacts/tensorboard_logs"
+
+
+
+
 
