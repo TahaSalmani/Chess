@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Union
+from typing import Union , Optional
 
 from Chess import logger
 from Chess.entity.config_entity import (
@@ -42,7 +42,7 @@ class DataTransformation:
     def extract_dataset(self):
         x_list = []
         y_list = []
-        max_games =  None
+        max_games :  Optional[int] = None
         games_count = 0
 
         with open(self.config.status_file, "r") as file:
@@ -55,7 +55,8 @@ class DataTransformation:
 
         with open(self.config.data_path, "r", encoding="utf-8") as f:
             while True:
-                if games_count >= max_games:
+
+                if max_games is not None and games_count >= max_games:
                     break
                 game = chess.pgn.read_game(f)
 
