@@ -42,6 +42,8 @@ class DataTransformation:
     def extract_dataset(self):
         x_list = []
         y_list = []
+        max_games =  100
+        games_count = 0
 
         with open(self.config.status_file, "r") as file:
             status = file.read().split()[-1].strip()
@@ -50,9 +52,13 @@ class DataTransformation:
                 logger.error("Status file validation failed")
                 raise ValueError("Validation status is False")
 
+
         with open(self.config.data_path, "r", encoding="utf-8") as f:
             while True:
+                if games_count >= max_games:
+                    break
                 game = chess.pgn.read_game(f)
+
                 if game is None:
                     break
 
@@ -78,6 +84,7 @@ class DataTransformation:
                     x_list.append(self.board_to_matrix(board))
                     y_list.append(self.move_to_index(move))
                     board.push(move)
+                games_count += 1
 
         return np.array(x_list, dtype=np.uint8), np.array(y_list, dtype=np.int16)
 
