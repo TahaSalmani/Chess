@@ -42,7 +42,7 @@ class DataTransformation:
     def extract_dataset(self):
         x_list = []
         y_list = []
-        max_games =  100
+        max_games =  None
         games_count = 0
 
         with open(self.config.status_file, "r") as file:
