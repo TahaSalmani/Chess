@@ -5,7 +5,7 @@ import tensorflow as tf
 from pathlib import Path
 from Chess.config.configuration import PrepareEvaluationConfig
 
-
+from Chess.utils.common import save_json
 
 class ModelEvaluate:
     def __init__(self , config : PrepareEvaluationConfig):
@@ -30,6 +30,8 @@ class ModelEvaluate:
 
         with open(save_path, "w") as f:
             json.dump(scores, f, indent=4)
+
+        save_json(path=Path("scores.json"), data=scores)
 
         logger.info(f"Scores saved successfully at {save_path}: {scores}")
 

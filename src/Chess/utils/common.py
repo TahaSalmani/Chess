@@ -5,6 +5,7 @@ from box import ConfigBox
 from box.exceptions import BoxValueError
 from pathlib import Path
 import logging
+import json
 logger = logging.getLogger("ChessLogger")
 @ensure_annotations
 def read_yaml(path: Path) ->ConfigBox :
@@ -25,3 +26,9 @@ def  create_directories (path: list , verbose: bool = True )  :
         os.makedirs(p, exist_ok=True)
         if verbose:
             logger.info(f"Created directory in {p}")
+@ensure_annotations
+def save_json (path : Path , data : dict) :
+
+    with open(path, 'w') as f:
+        json.dump(data, f , indent=4)
+        logger.info(f"json file  saved in  : {path}")
