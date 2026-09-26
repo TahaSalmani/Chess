@@ -34,8 +34,8 @@ evaluate_base_model :
   root_dir : artifacts/evaluate
   evaluate_scores : artifacts/evaluate/scores
   trained_model_path: artifacts/prepare_callbacks/trained_model.h5
-  transformed_x_path: artifacts/data_transformation/processed/X.npy
-  transformed_y_path: artifacts/data_transformation/processed/Y.npy
+  transformed_x_path: artifacts/data_transformation/X_test.npy
+  transformed_y_path: artifacts/data_transformation/y_test.npy
 
 rl_environment :
   board_cols : 8

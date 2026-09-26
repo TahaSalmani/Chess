@@ -1,5 +1,7 @@
 import json
-
+import os.path
+import os
+import numpy as np
 from Chess import logger
 import tensorflow as tf
 from pathlib import Path
@@ -15,7 +17,9 @@ class ModelEvaluate:
     def load_model(path: Path) -> tf.keras.Model:
         return tf.keras.models.load_model(path)
 
-    def evaluation(self, X_test, y_test):
+    def evaluation(self):
+        X_test = np.load(os.path.join(self.config.transformed_x_path))
+        y_test = np.load(os.path.join(self.config.transformed_y_path))
         model = self.load_model(self.config.trained_model_path)
 
         logger.info("Evaluating model on test dataset...")

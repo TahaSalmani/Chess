@@ -15,29 +15,12 @@ class EvaluationPipeline:
     def main(self):
         config_manager = ConfigurationManager()
 
-        logger.info("Executing Data Ingestion for Evaluation...")
-        data_ingestion_config = config_manager.get_data_ingestion_config()
-        data_ingestion = DataIngestion(config=data_ingestion_config)
-        data_ingestion.download_file()
-        extracted_file_path = data_ingestion.extract_zst_file()
 
-        logger.info("Executing Data Validation...")
-        data_validation_config = config_manager.get_data_validation_config()
-        data_validation = DataValidation(config=data_validation_config)
-        is_valid = data_validation.validate()
-
-        if not is_valid:
-            raise Exception("Data validation failed! Stopping evaluation pipeline.")
-
-        logger.info("Transforming Data to NumPy format...")
-        data_transformation_config = config_manager.get_data_transformation_config()
-        data_transformation = DataTransformation(config=data_transformation_config)
-        X_test, y_test = data_transformation.transform_pgn_to_numpy(extracted_file_path)
 
         logger.info("Evaluating Model...")
         eval_config = config_manager.get_evaluation_model()
         model_evaluator = ModelEvaluate(config=eval_config)
-        model_evaluator.evaluation(X_test, y_test)
+        model_evaluator.evaluation()
         model_evaluator.save_score()
 
 
