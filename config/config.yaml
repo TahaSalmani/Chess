@@ -37,23 +37,11 @@ evaluate_base_model :
   transformed_x_path: artifacts/data_transformation/X_test.npy
   transformed_y_path: artifacts/data_transformation/y_test.npy
 
-rl_environment :
-  board_cols : 8
-  board_row : 8
-  pieces_type : 12
-  action_space_size : 4096
-  reward :
-    checkmate: 100.0
-    illegal_move: -10.0
-    draw: 0.0
-    step_penalty: 0.1
+torch_dataset :
+  root_dir : artifacts/torch_dataset
+  x_data_path : artifacts/data_transformation/X_train.npy
+  y_data_path : artifacts/data_transformation/y_train.npy
 
-rl_train :
-  root_dir : artifacts/rl_model/ppo_chess
-  verbose : 1
-  learning_rate : 0.001
-  total_timesteps : 10000
-  tensorboard_log_dir: "artifacts/tensorboard_logs"
 
 
 

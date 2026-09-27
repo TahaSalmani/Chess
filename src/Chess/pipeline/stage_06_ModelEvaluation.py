@@ -1,8 +1,6 @@
 
 from Chess.config.configuration import ConfigurationManager
-from Chess.components.data_ingestion import DataIngestion
-from Chess.components.data_validation import DataValidation
-from Chess.components.data_transformation import DataTransformation
+
 from Chess.components.model_evaluate import ModelEvaluate
 from Chess import logger
 
