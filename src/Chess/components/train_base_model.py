@@ -4,7 +4,6 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
 from Chess import logger
-from Chess.components.prepare_base_model import PrepareBaseModel
 from Chess.config.configuration import PrepareTrainingConfig
 from tensorflow.keras.callbacks import TensorBoard
 
@@ -12,6 +11,7 @@ class TrainBaseModel:
 
     def __init__(self, config: PrepareTrainingConfig):
         self.config = config
+
 
     def get_base_model(self):
         self.model = tf.keras.models.load_model(

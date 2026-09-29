@@ -54,3 +54,13 @@ class PrepareTorchDataset :
     root_dir: Path
     x_data_path: Path
     y_data_path: Path
+@dataclass(frozen=True)
+class PrepareTorchBaseModelConfig :
+    root_dir: Path
+    model_path: Path
+    params_D_MODEL :int
+    params_NUM_HEADS : int
+    params_FF_DIM : int
+    params_NUM_LAYERS : int
+    params_IN_CHANNELS : int
+    params_NUM_MOVES : int

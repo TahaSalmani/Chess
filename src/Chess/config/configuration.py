@@ -1,6 +1,8 @@
+from conda.exports import root_dir
+
 from Chess.utils.common import read_yaml , create_directories
 from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig, \
-    DataTransformationConfig, PrepareBaseModelConfig, PrepareTrainingConfig, PrepareEvaluationConfig , PrepareEvaluationConfig , PrepareTorchDataset
+    DataTransformationConfig, PrepareBaseModelConfig, PrepareTrainingConfig, PrepareEvaluationConfig , PrepareEvaluationConfig , PrepareTorchDataset , PrepareTorchBaseModelConfig
 from Chess.constants import Params_File_Path , Config_File_Path
 from pathlib import Path
 
@@ -83,6 +85,7 @@ class ConfigurationManager :
             params_shuffle=params.SHUFFLE,
             params_validation_split=params.VALIDATION_SPLIT,
             params_learning_rate=params.LEARNING_RATE,
+
         )
 
         return prepare_train_config
@@ -114,3 +117,22 @@ class ConfigurationManager :
 
         )
         return prepare_dataset_config
+
+    def get_torch_base_model (self) -> PrepareTorchBaseModelConfig :
+        config = self.config.torch_base_model
+        params = self.params
+        create_directories([config.root_dir])
+
+        prepare_base_model_config = PrepareTorchBaseModelConfig(
+            root_dir = Path(config.root_dir) ,
+            model_path = Path(config.model_path) ,
+            params_D_MODEL = params.D_MODEL ,
+            params_NUM_HEADS= params.NUM_HEADS ,
+            params_FF_DIM = params.FF_DIM ,
+            params_IN_CHANNELS= params.IN_CHANNELS ,
+            params_NUM_MOVES = params.NUM_MOVES ,
+            params_NUM_LAYERS= params.NUM_LAYERS
+
+
+        )
+        return prepare_base_model_config

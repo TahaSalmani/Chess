@@ -1,13 +1,9 @@
-import json
-import os
 from pathlib import Path
-from typing import Union , Optional
+from typing import Union
 
 from Chess import logger
-from Chess.entity.config_entity import (
-    DataTransformationConfig,
-    PrepareEvaluationConfig,
-)
+from Chess.entity.config_entity import DataTransformationConfig
+
 import chess
 import chess.pgn as pgn
 import numpy as np
@@ -17,7 +13,7 @@ from sklearn.model_selection import train_test_split
 class DataTransformation:
 
     def __init__(
-        self, config: Union[DataTransformationConfig, PrepareEvaluationConfig]
+        self, config: DataTransformationConfig
     ):
         self.config = config
 

@@ -42,6 +42,9 @@ torch_dataset :
   x_data_path : artifacts/data_transformation/X_train.npy
   y_data_path : artifacts/data_transformation/y_train.npy
 
+torch_base_model :
+  root_dir : artifacts/torch_base_model
+  model_path : artifacts/torch_base_model/base_model.pth
 
 
 
