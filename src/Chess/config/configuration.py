@@ -1,4 +1,3 @@
-from conda.exports import root_dir
 
 from Chess.utils.common import read_yaml , create_directories
 from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig, \
