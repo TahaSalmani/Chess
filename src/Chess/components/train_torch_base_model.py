@@ -1,6 +1,6 @@
 import os
 import torch
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset, random_split
 from torch.utils.tensorboard import SummaryWriter
 from Chess import logger
 from Chess.components.torch_base_model import ChessPolicyNet
@@ -10,7 +10,6 @@ from Chess.components.torch_base_model import PrepareTorchBaseModelConfig
 class ModelCheckpoint:
     def __init__(self, filepath: str):
         self.filepath = filepath
-
         self.best_loss = float("inf")
 
     def __call__(self, current_loss: float, model: torch.nn.Module):
@@ -43,7 +42,7 @@ class EarlyStopping:
 
 
 class TrainTorchBaseModel:
-    def __init__(self, config: PrepareTorchTrainingConfig , base_model_config: PrepareTorchBaseModelConfig):
+    def __init__(self, config: PrepareTorchTrainingConfig, base_model_config: PrepareTorchBaseModelConfig):
         self.config = config
         self.base_model_config = base_model_config
 
@@ -59,10 +58,23 @@ class TrainTorchBaseModel:
         y_tensor = torch.load(self.config.y_dataset).long()
 
         dataset = TensorDataset(x_tensor, y_tensor)
+
+        val_split = getattr(self.config, "params_validation_split", 0.2)
+        val_size = int(len(dataset) * val_split)
+        train_size = len(dataset) - val_size
+        train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+
         train_loader = DataLoader(
-            dataset,
-            batch_size=self.config.params_batch_size ,
-            shuffle=True ,
+            train_dataset,
+            batch_size=self.config.params_batch_size,
+            shuffle=True,
+            num_workers=0
+        )
+
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=self.config.params_batch_size,
+            shuffle=False,
             num_workers=0
         )
 
@@ -79,13 +91,13 @@ class TrainTorchBaseModel:
         checkpoint = ModelCheckpoint(filepath=checkpoint_path)
         early_stopping = EarlyStopping(patience=getattr(self.config, 'params_PATIENCE', 5))
 
-        model.train()
         logger.info("Starting Training...")
 
         for epoch in range(self.config.params_epochs):
+            model.train()
             running_loss = 0.0
 
-            for i ,  (batch_x, batch_y ) in enumerate (train_loader):
+            for i, (batch_x, batch_y) in enumerate(train_loader):
                 batch_x, batch_y = batch_x.to(device), batch_y.to(device)
 
                 optimizer.zero_grad()
@@ -96,18 +108,30 @@ class TrainTorchBaseModel:
                 optimizer.step()
 
                 running_loss += loss.item()
-                if (i + 1) % 10 == 0:
-                    print(f"Batch [{i + 1}/{len(train_loader)}] processed...", flush=True)
 
             epoch_loss = running_loss / len(train_loader)
 
+            model.eval()
+            val_loss = 0.0
+
+            with torch.no_grad():
+                for i, (batch_x, batch_y) in enumerate(val_loader):
+                    batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+                    outputs = model(batch_x)
+                    loss = criterion(outputs, batch_y)
+                    val_loss += loss.item()
+
+            val_loss = val_loss / len(val_loader)
+
             self.writer.add_scalar("Loss/train", epoch_loss, epoch)
+            self.writer.add_scalar("Loss/val", val_loss, epoch)
             self.writer.add_scalar("Learning_Rate", optimizer.param_groups[0]['lr'], epoch)
 
-            logger.info(f"Epoch [{epoch + 1}/{self.config.params_epochs}] - Loss: {epoch_loss:.4f}")
+            logger.info(
+                f"Epoch [{epoch + 1}/{self.config.params_epochs}] - Train Loss: {epoch_loss:.4f} - Val Loss: {val_loss:.4f}")
 
-            checkpoint(epoch_loss, model)
-            early_stopping(epoch_loss)
+            checkpoint(val_loss, model)
+            early_stopping(val_loss)
 
             if early_stopping.should_stop:
                 logger.info("Early stopping .")
