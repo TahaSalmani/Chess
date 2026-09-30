@@ -31,9 +31,3 @@ class ChessDataset(Dataset):
         torch.save(x_tensor , x_path)
         torch.save(y_tensor , y_path)
 
-import torch
-
-x = torch.load("artifacts/torch_dataset/x_tensor.pt")
-print(type(x))
-print(x.shape)
-print(x.dtype)
