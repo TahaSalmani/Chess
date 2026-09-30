@@ -64,3 +64,13 @@ class PrepareTorchBaseModelConfig :
     params_NUM_LAYERS : int
     params_IN_CHANNELS : int
     params_NUM_MOVES : int
+@dataclass(frozen=True)
+class PrepareTorchTrainingConfig :
+    root_dir: Path
+    x_dataset: Path
+    y_dataset: Path
+    trained_model_path: Path
+    model_path: Path
+    params_epochs: int
+    params_batch_size: int
+    params_learning_rate: float
