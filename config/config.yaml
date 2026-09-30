@@ -46,6 +46,12 @@ torch_base_model :
   root_dir : artifacts/torch_base_model
   model_path : artifacts/torch_base_model/base_model.pth
 
+prepare_train_torch_model :
+  root_dir : artifacts/prepare_torch_callbacks
+  model_path : artifacts/torch_base_model/base_model.pth
+  trained_model_path : artifacts/prepare_torch_callbacks/trained_model.pth
+  x_dataset : artifacts/torch_dataset/x_tensor.pt
+  y_dataset : artifacts/torch_dataset/y_tensor.pt
 
 
 

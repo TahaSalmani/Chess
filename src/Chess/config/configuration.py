@@ -1,8 +1,7 @@
-from conda.exports import root_dir
 
 from Chess.utils.common import read_yaml , create_directories
 from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig, \
-    DataTransformationConfig, PrepareBaseModelConfig, PrepareTrainingConfig, PrepareEvaluationConfig , PrepareEvaluationConfig , PrepareTorchDataset , PrepareTorchBaseModelConfig
+    DataTransformationConfig, PrepareBaseModelConfig, PrepareTrainingConfig, PrepareEvaluationConfig , PrepareEvaluationConfig , PrepareTorchDataset , PrepareTorchBaseModelConfig , PrepareTorchTrainingConfig
 from Chess.constants import Params_File_Path , Config_File_Path
 from pathlib import Path
 
@@ -136,3 +135,21 @@ class ConfigurationManager :
 
         )
         return prepare_base_model_config
+
+    def get_torch_training_config(self) -> PrepareTorchTrainingConfig:
+        config = self.config.prepare_train_torch_model
+        params = self.params
+        create_directories([config.root_dir])
+        prepare_training_config = PrepareTorchTrainingConfig(
+            root_dir=Path(config.root_dir),
+            trained_model_path=Path(config.trained_model_path),
+            model_path=Path(config.model_path),
+            x_dataset=Path(config.x_dataset),
+            y_dataset=Path(config.y_dataset),
+            params_epochs=params.EPOCHS,
+            params_learning_rate= params.LEARNING_RATE,
+            params_batch_size=params.BATCH_SIZE,
+
+
+        )
+        return prepare_training_config
