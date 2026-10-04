@@ -4,8 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from Chess import logger
-from Chess.components.policy_value_torch_model import ValuePolicyNet
-from Chess.config.configuration import PrepareTorchTrainingConfig
+
 
 class SelfPlayDataset(Dataset):
     def __init__(self, data_dir ,):
@@ -79,33 +78,3 @@ def train_rl_step(  model, data_dir, epochs=10, batch_size=16, lr=0.0005, device
     logger.info(f"Updated RL model saved successfully to {save_path}")
 
 
-if __name__ == "__main__":
-    from Chess.entity.config_entity import PrepareTorchBaseModelConfig
-
-    config = PrepareTorchBaseModelConfig(
-        root_dir="artifacts/prepare_torch_base_model",
-        model_path="artifacts/prepare_torch_base_model/base_model.pth",
-        params_D_MODEL=128,
-        params_NUM_HEADS=4,
-        params_FF_DIM=512,
-        params_NUM_LAYERS=4,
-        params_IN_CHANNELS=12,
-        params_NUM_MOVES=4096,
-    )
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = ValuePolicyNet(config)
-
-    weights_path = "artifacts/prepare_torch_callbacks/trained_model.pth"
-    if os.path.exists(weights_path):
-        model.load_state_dict(torch.load(weights_path, map_location=device), strict=False)
-
-    train_rl_step(
-
-        model=model,
-        data_dir="artifacts/self_play_data",
-        epochs=2,
-        batch_size=16,
-        lr=0.0005,
-        device=device
-    )
