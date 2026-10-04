@@ -1,7 +1,7 @@
 
 from Chess.utils.common import read_yaml , create_directories
 from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig, \
-    DataTransformationConfig, PrepareBaseModelConfig, PrepareTrainingConfig, PrepareEvaluationConfig , PrepareEvaluationConfig , PrepareTorchDataset , PrepareTorchBaseModelConfig , PrepareTorchTrainingConfig
+    DataTransformationConfig, PrepareBaseModelConfig, PrepareTrainingConfig, PrepareEvaluationConfig , PrepareEvaluationConfig , PrepareTorchDataset , PrepareTorchBaseModelConfig , PrepareTorchTrainingConfig , PrepareMctsConfig
 from Chess.constants import Params_File_Path , Config_File_Path
 from pathlib import Path
 
@@ -153,3 +153,15 @@ class ConfigurationManager :
 
         )
         return prepare_training_config
+
+    def get_mcts_config(self)->PrepareMctsConfig :
+        config = self.config.mcts
+        params = self.params
+        create_directories([config.root_dir])
+        prepare_mcts_config = PrepareMctsConfig(
+            root_dir=Path(config.root_dir),
+            params_MCTS_C_PUCT= params.P_CUT ,
+            params_MCTS_NUM_SUMULATION=params.NUM_SUMULATIONS ,
+
+        )
+        return  prepare_mcts_config

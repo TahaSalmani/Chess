@@ -56,3 +56,13 @@ stages:
     outs:
     - artifacts/evaluate/scores
 
+  torch_Dataset :
+    cmd: python src/Chess/pipeline/stage_07_TorchDataset.py
+    deps :
+      - artifacts/data_transformation/processed/X.npy
+      - artifacts/data_transformation/processed/Y.npy
+      - python src/Chess/pipeline/stage_07_TorchDataset.py
+    outs :
+      - artifacts/torch_dataset/x_tensor.pt
+      - artifacts/torch_dataset/y_tensor.pt
+

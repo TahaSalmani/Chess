@@ -53,6 +53,8 @@ prepare_train_torch_model :
   x_dataset : artifacts/torch_dataset/x_tensor.pt
   y_dataset : artifacts/torch_dataset/y_tensor.pt
 
+mcts :
+  root_dir : artifacts/mcts/trained_mcts.pth
 
 
 

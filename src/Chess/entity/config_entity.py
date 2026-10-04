@@ -74,3 +74,8 @@ class PrepareTorchTrainingConfig :
     params_epochs: int
     params_batch_size: int
     params_learning_rate: float
+@dataclass(frozen=True)
+class PrepareMctsConfig :
+    root_dir: Path
+    params_MCTS_NUM_SUMULATION : int
+    params_MCTS_C_PUCT : int
