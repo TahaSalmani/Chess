@@ -38,7 +38,6 @@ class DataTransformation:
     def extract_dataset(self):
         x_list = []
         y_list = []
-        max_games = 6000
         games_count = 0
 
         with open(self.config.status_file, "r") as file:
@@ -52,8 +51,6 @@ class DataTransformation:
         with open(self.config.data_path, "r", encoding="utf-8") as f:
             while True:
 
-                if max_games is not None and games_count >= max_games:
-                    break
                 game = chess.pgn.read_game(f)
 
                 if game is None:
@@ -82,12 +79,15 @@ class DataTransformation:
                     y_list.append(self.move_to_index(move))
                     board.push(move)
                 games_count += 1
+                if games_count %10000 == 0 :
+                    logger.info(f'number of games are over {games_count} ')
+
 
         return np.array(x_list, dtype=np.uint8), np.array(y_list, dtype=np.int16)
 
     def split_and_save_data(self, X: np.ndarray, y: np.ndarray) -> None:
         output_dir = Path(self.config.root_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)  # ساخت پوشه در صورت عدم وجود
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         X_train, X_temp, y_train, y_temp = train_test_split(
             X, y, test_size=0.30, random_state=42

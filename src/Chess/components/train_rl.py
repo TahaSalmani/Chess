@@ -3,16 +3,16 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+from Chess.entity.config_entity import PrepareTorchTrainingConfig
 from Chess import logger
 
 
 class SelfPlayDataset(Dataset):
-    def __init__(self, data_dir ,):
-
+    def __init__(self, data_dir, config: PrepareTorchTrainingConfig):
+        self.config = config
         self.x = torch.load(os.path.join(data_dir, 'selfplay_x.pt'))
         self.policy = torch.load(os.path.join(data_dir, 'selfplay_policy.pt'))
         self.value = torch.load(os.path.join(data_dir, 'selfplay_value.pt'))
-
 
     def __len__(self):
         return len(self.x)
@@ -21,10 +21,12 @@ class SelfPlayDataset(Dataset):
         return self.x[idx], self.policy[idx], self.value[idx]
 
 
+def train_rl_step(model, data_dir, config: PrepareTorchTrainingConfig, device='cpu'):
+    batch_size = config.params_batch_size
+    lr = config.params_learning_rate
+    epochs = config.params_epochs
 
-def train_rl_step(  model, data_dir, epochs=10, batch_size=16, lr=0.0005, device='cpu'):
-
-    dataset = SelfPlayDataset(data_dir )
+    dataset = SelfPlayDataset(data_dir, config)
     dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -34,10 +36,7 @@ def train_rl_step(  model, data_dir, epochs=10, batch_size=16, lr=0.0005, device
     model.to(device)
     model.train()
 
-
-
-
-    logger.info(f"Starting RL training on {len(dataset)} ... ")
+    logger.info(f"Starting RL training on {len(dataset)} positions...")
 
     for epoch in range(epochs):
         total_loss = 0.0
@@ -47,7 +46,7 @@ def train_rl_step(  model, data_dir, epochs=10, batch_size=16, lr=0.0005, device
         for batch_x, batch_policy, batch_value in dataloader:
             batch_x = batch_x.to(device)
             batch_policy = batch_policy.to(device)
-            batch_value = batch_value.to(device).unsqueeze(1)  # [batch_size, 1]
+            batch_value = batch_value.to(device).unsqueeze(1)
 
             optimizer.zero_grad()
 
@@ -69,12 +68,11 @@ def train_rl_step(  model, data_dir, epochs=10, batch_size=16, lr=0.0005, device
         avg_v_loss = total_value_loss / len(dataloader)
 
         logger.info(
-            f"Epoch [{epoch + 1}/{epochs}] | Total Loss: {avg_loss:.4f} (Policy: {avg_p_loss:.4f}, Value: {avg_v_loss:.4f})"
+            f"Epoch [{epoch + 1}/{epochs}] | Total Loss: {avg_loss:.4f} "
+            f"(Policy: {avg_p_loss:.4f}, Value: {avg_v_loss:.4f})"
         )
 
     os.makedirs("artifacts/prepare_torch_callbacks", exist_ok=True)
     save_path = "artifacts/prepare_torch_callbacks/rl_trained_model.pth"
     torch.save(model.state_dict(), save_path)
     logger.info(f"Updated RL model saved successfully to {save_path}")
-
-

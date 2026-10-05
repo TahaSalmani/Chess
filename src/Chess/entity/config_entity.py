@@ -77,5 +77,5 @@ class PrepareTorchTrainingConfig :
 @dataclass(frozen=True)
 class PrepareMctsConfig :
     root_dir: Path
-    params_MCTS_NUM_SUMULATION : int
+    params_MCTS_NUM_SIMULATION : int
     params_MCTS_C_PUCT : int

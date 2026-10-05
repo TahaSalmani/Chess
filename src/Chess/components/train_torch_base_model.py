@@ -92,12 +92,12 @@ class TrainTorchBaseModel:
         early_stopping = EarlyStopping(patience=getattr(self.config, 'params_PATIENCE', 5))
 
         logger.info("Starting Training...")
-
+        total_batches = len(train_loader)
         for epoch in range(self.config.params_epochs):
             model.train()
             running_loss = 0.0
 
-            for i, (batch_x, batch_y) in enumerate(train_loader):
+            for i, (batch_x, batch_y) in enumerate(train_loader , 1):
                 batch_x, batch_y = batch_x.to(device), batch_y.to(device)
 
                 optimizer.zero_grad()
@@ -108,6 +108,13 @@ class TrainTorchBaseModel:
                 optimizer.step()
 
                 running_loss += loss.item()
+                if i % 10 == 0 or i == total_batches:
+                    current_avg_loss = running_loss / i
+                    logger.info(
+                        f"Epoch [{epoch + 1}/{self.config.params_epochs}] | "
+                        f"Step [{i}/{total_batches}] ({(i / total_batches) * 100:.1f}%) | "
+                        f"Batch Loss: {loss.item():.4f} | Avg Loss: {current_avg_loss:.4f}"
+                    )
 
             epoch_loss = running_loss / len(train_loader)
 

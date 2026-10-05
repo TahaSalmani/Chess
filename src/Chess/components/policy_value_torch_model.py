@@ -41,11 +41,8 @@ class ValuePolicyNet(nn.Module):
         value = torch.tanh(self.value_out(self.relu(self.value_fc(pooled))))
 
         return policy_logits, value
-
-    def load_backbone_from_policy(value_model , policy_model_path, device , config : PrepareTorchBaseModelConfig):
-
-
-        policy_model_path = os.path.join("artifacts" , "prepare_torch_callbacks" , "best_model.pth")
+    @staticmethod
+    def load_backbone_from_policy(value_model, policy_model_path, device):
         policy_weights = torch.load(policy_model_path, map_location=device)
         value_weights = value_model.state_dict()
 

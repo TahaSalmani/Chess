@@ -1,13 +1,12 @@
+import os
 import chess
 import numpy as np
 import torch
-
 from Chess import logger
 from Chess.components.Mcts import MCTS
 
 
-def play_one_game(model, device, num_simulations=100, max_moves=500):
-
+def play_one_game(model, device, num_simulations=80, max_moves=500):
     board = chess.Board()
     mcts = MCTS(model=model, device=device, num_simulations=num_simulations)
 
@@ -51,8 +50,9 @@ def play_one_game(model, device, num_simulations=100, max_moves=500):
         training_data.append((board_matrix, policy_target, value_target))
 
     return training_data
-def generate_self_play_data(model, device, num_games=5, num_simulations=50, max_moves=500):
 
+
+def generate_self_play_data(model, device, num_games=1, num_simulations=80, max_moves=100):
     all_data = []
 
     for game_idx in range(num_games):
@@ -70,9 +70,6 @@ def generate_self_play_data(model, device, num_games=5, num_simulations=50, max_
 
 
 def save_self_play_data(data, save_dir):
-
-    import os
-
     os.makedirs(save_dir, exist_ok=True)
 
     boards = np.array([d[0] for d in data], dtype=np.float32)

@@ -2,54 +2,71 @@ import os
 import torch
 from Chess import logger
 from Chess.config.configuration import ConfigurationManager
+from Chess.components.ChessEnv import ChessEnv
 from Chess.components.policy_value_torch_model import ValuePolicyNet
+from Chess.components.Mcts import MCTS
+from Chess.components.self_play import generate_self_play_data, save_self_play_data
 from Chess.components.train_rl import train_rl_step
 
-STAGE_NAME = "Train Reinforcement Learning Stage"
+STAGE_NAME = "Reinforcement Learning Full Pipeline Stage"
 
 
 class TrainRLPipeline:
     def __init__(self):
-        pass
+        self.config_manager = ConfigurationManager()
 
     def main(self):
-        logger.info("Fetching configuration for RL training...")
-        config_manager = ConfigurationManager()
-
-        base_model_config = config_manager.get_torch_base_model()
-        training_config = config_manager.get_torch_training_config()
+        logger.info("Fetching configurations for RL pipeline...")
+        base_model_config = self.config_manager.get_torch_base_model()
+        training_config = self.config_manager.get_torch_training_config()
+        mcts_config = self.config_manager.get_mcts_config()
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Using device: {device}")
 
-        model = ValuePolicyNet(base_model_config)
+        env = ChessEnv(config=None)
+        model = ValuePolicyNet(config=base_model_config).to(device)
 
         weights_path = training_config.trained_model_path
         if os.path.exists(weights_path):
             logger.info(f"Loading existing weights from: {weights_path}")
             model.load_state_dict(torch.load(weights_path, map_location=device), strict=False)
         else:
-            logger.info("No pre-trained weights found. Starting from base model weights.")
+            logger.info("No pre-trained weights found. Starting with base model initial weights.")
+
+
+        mcts = MCTS(model=model, device=device, config=mcts_config)
+        logger.info(f"MCTS initialized with {mcts_config.params_MCTS_NUM_SIMULATION} simulations.")
 
         self_play_data_dir = os.path.join("artifacts", "self_play_data")
+        logger.info(">>> Stage 1: Starting Self-Play Data Generation <<<")
 
-        logger.info(f"Starting RL training step using data from {self_play_data_dir}...")
+        self_play_data = generate_self_play_data(
+            model=model,
+            device=device,
+            num_games=1000,
+            num_simulations=mcts_config.params_MCTS_NUM_SIMULATION,
+            max_moves=500
+        )
+
+        save_self_play_data(data=self_play_data, save_dir=self_play_data_dir)
+
+        logger.info(">>> Stage 2: Starting RL Training Step <<<")
         train_rl_step(
             model=model,
             data_dir=self_play_data_dir,
-            epochs=training_config.params_epochs,
-            batch_size=training_config.params_batch_size,
-            lr=training_config.params_learning_rate,
+            config=training_config,
             device=device
         )
+        logger.info("RL Training completed successfully.")
 
 
 if __name__ == "__main__":
     try:
-        logger.info(f">>>>>> Stage {STAGE_NAME} started <<<<<<")
+        logger.info(f">>>>>> {STAGE_NAME} Started <<<<<<")
         obj = TrainRLPipeline()
         obj.main()
-        logger.info(f">>>>>> Stage {STAGE_NAME} completed successfully! <<<<<<\n\nx==========x")
+        logger.info(f">>>>>> {STAGE_NAME} Completed Successfully! <<<<<<\n\nx==========x")
     except Exception as e:
         logger.exception(e)
         raise e

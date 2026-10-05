@@ -160,8 +160,8 @@ class ConfigurationManager :
         create_directories([config.root_dir])
         prepare_mcts_config = PrepareMctsConfig(
             root_dir=Path(config.root_dir),
-            params_MCTS_C_PUCT= params.P_CUT ,
-            params_MCTS_NUM_SUMULATION=params.NUM_SUMULATIONS ,
+            params_MCTS_C_PUCT= params.MCTS_C_PUCT ,
+            params_MCTS_NUM_SIMULATION=params.MCTS_NUM_SIMULATION ,
 
         )
         return  prepare_mcts_config
