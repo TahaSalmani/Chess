@@ -1,7 +1,7 @@
 
 from Chess.utils.common import read_yaml , create_directories
 from Chess.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig, \
-    DataTransformationConfig, PrepareBaseModelConfig, PrepareTrainingConfig, PrepareEvaluationConfig , PrepareEvaluationConfig , PrepareTorchDataset , PrepareTorchBaseModelConfig , PrepareTorchTrainingConfig , PrepareMctsConfig
+    DataTransformationConfig, PrepareBaseModelConfig, PrepareTrainingConfig, PrepareEvaluationConfig , PrepareEvaluationConfig , PrepareTorchDataset , PrepareTorchBaseModelConfig , PrepareTorchTrainingConfig , PrepareRlModelConfig
 from Chess.constants import Params_File_Path , Config_File_Path
 from pathlib import Path
 
@@ -153,15 +153,19 @@ class ConfigurationManager :
 
         )
         return prepare_training_config
-
-    def get_mcts_config(self)->PrepareMctsConfig :
-        config = self.config.mcts
+    def get_rl_config(self) -> PrepareRlModelConfig :
+        config = self.config.prepare_rl_model
         params = self.params
-        create_directories([config.root_dir])
-        prepare_mcts_config = PrepareMctsConfig(
+        create_directories([config.root_dir, config.self_play_data])
+        prepare_rl_config = PrepareRlModelConfig(
             root_dir=Path(config.root_dir),
-            params_MCTS_C_PUCT= params.MCTS_C_PUCT ,
-            params_MCTS_NUM_SIMULATION=params.MCTS_NUM_SIMULATION ,
-
+            self_play_data=Path(config.self_play_data),
+            params_max_moves=params.MAX_MOVES,
+            params_num_games=params.NUM_GAMES,
+            params_num_simulation=params.NUM_SIMULATION  ,
+            params_learning_rate = params.LEARNING_RATE  ,
+            params_epochs= params.EPOCHS ,
+            params_batch_size= params.BATCH_SIZE ,
+            params_c_puct= params.C_PUCT,
         )
-        return  prepare_mcts_config
+        return prepare_rl_config

@@ -2,7 +2,7 @@ import math
 import numpy as np
 import torch
 import chess
-
+from Chess.entity.config_entity import PrepareRlModelConfig
 
 class MCTSNode:
     def __init__(self, board: chess.Board, parent=None, prior: float = 0.0):
@@ -23,17 +23,10 @@ class MCTSNode:
 
 
 class MCTS:
-    def __init__(self, model, device, config=None, num_simulations=80):
+    def __init__(self, model, device, config: PrepareRlModelConfig):
+        self.config = config
         self.model = model
         self.device = device
-
-        if config is not None:
-            self.config = config
-            self.num_simulations = getattr(config, "params_MCTS_NUM_SIMULATION", num_simulations)
-            self.c_puct = getattr(config, "params_MCTS_C_PUCT", 1.5)
-        else:
-            self.num_simulations = num_simulations
-            self.c_puct = 1.5
 
     def board_to_tensor(self, board: chess.Board):
         matrix = np.zeros((8, 8, 12), dtype=np.float32)
@@ -47,7 +40,7 @@ class MCTS:
         root = MCTSNode(root_board.copy())
         self._expand(root)
 
-        for _ in range(self.num_simulations):
+        for _ in range(self.config.params_num_simulation):
             node = root
             search_path = [node]
 
@@ -65,7 +58,7 @@ class MCTS:
         best_move, best_child = None, None
 
         for move, child in node.children.items():
-            score = child.value() + self.c_puct * child.prior * math.sqrt(node.visit_count) / (1 + child.visit_count)
+            score = child.value() + self.config.params_c_puct * child.prior * math.sqrt(node.visit_count) / (1 + child.visit_count)
             if score > best_score:
                 best_score = score
                 best_move, best_child = move, child

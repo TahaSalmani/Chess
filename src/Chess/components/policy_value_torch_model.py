@@ -11,13 +11,13 @@ class ValuePolicyNet(nn.Module):
     def __init__(self , config : PrepareTorchBaseModelConfig):
         super().__init__()
         self.config = config
-        self.input = nn.Linear(config.params_IN_CHANNELS  , config.params_D_MODEL)
-        self.pos_embed = nn.Parameter(torch.randn(1,64 , config.params_D_MODEL))
+        self.input_proj = nn.Linear(config.params_IN_CHANNELS  , config.params_D_MODEL)
+        self.pos_embd = nn.Parameter(torch.randn(1,64 , config.params_D_MODEL))
         self.blocks = nn.ModuleList([
             TransformerEncoderBlock(config) for _ in range(config.params_NUM_LAYERS)
         ])
-        self.policy_fc = nn.Linear(config.params_D_MODEL, 256)
-        self.policy_out = nn.Linear(256, config.params_NUM_MOVES)
+        self.fc = nn.Linear(config.params_D_MODEL, 256)
+        self.out = nn.Linear(256, config.params_NUM_MOVES)
 
         self.value_fc = nn.Linear(config.params_D_MODEL , 256)
         self.value_out = nn.Linear(256, 1)
@@ -27,8 +27,8 @@ class ValuePolicyNet(nn.Module):
     def forward(self, x):
         b = x.shape[0] ##number of plays --> 6000
         x = x.view(b, 64, -1) ### (number of plays , 64 , all numbers in  tensor / number of plays * 64) ---> [number of plays , 64 , 12]
-        x = self.input(x) ## increase property 12 --->  128
-        x = x + self.pos_embed ## [6000 , 64 , 128] + [1 , 64 , 128] ---> unique point for each sequence
+        x = self.input_proj(x) ## increase property 12 --->  128
+        x = x + self.pos_embd ## [6000 , 64 , 128] + [1 , 64 , 128] ---> unique point for each sequence
 
 
         for block in self.blocks:
@@ -37,7 +37,7 @@ class ValuePolicyNet(nn.Module):
         pooled = x.mean(dim=1)
 
 
-        policy_logits = self.policy_out(self.relu(self.policy_fc(pooled)))
+        policy_logits = self.out(self.relu(self.fc(pooled)))
         value = torch.tanh(self.value_out(self.relu(self.value_fc(pooled))))
 
         return policy_logits, value

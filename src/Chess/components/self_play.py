@@ -4,16 +4,17 @@ import numpy as np
 import torch
 from Chess import logger
 from Chess.components.Mcts import MCTS
+from Chess.entity.config_entity import PrepareRlModelConfig
 
 
-def play_one_game(model, device, num_simulations=80, max_moves=500):
+def play_one_game(model, device, config: PrepareRlModelConfig):
     board = chess.Board()
-    mcts = MCTS(model=model, device=device, num_simulations=num_simulations)
+    mcts = MCTS(model=model, device=device, config=config)
 
     game_history = []
     move_count = 0
 
-    while not board.is_game_over() and move_count < max_moves:
+    while not board.is_game_over() and move_count < config.params_max_moves:
         root = mcts.run(board)
 
         visit_counts = np.zeros(4096, dtype=np.float32)
@@ -52,24 +53,20 @@ def play_one_game(model, device, num_simulations=80, max_moves=500):
     return training_data
 
 
-def generate_self_play_data(model, device, num_games=1, num_simulations=80, max_moves=100):
+def generate_self_play_data(model, device, config: PrepareRlModelConfig):
     all_data = []
 
-    for game_idx in range(num_games):
-        logger.info(f"--- Starting self-play game {game_idx + 1}/{num_games} ---")
-        game_data = play_one_game(
-            model=model,
-            device=device,
-            num_simulations=num_simulations,
-            max_moves=max_moves
-        )
+    for game_idx in range(config.params_num_games):
+        logger.info(f"--- Starting self-play game {game_idx + 1}/{config.params_num_games} ---")
+        game_data = play_one_game(model=model, device=device, config=config)
         all_data.extend(game_data)
         logger.info(f"Game {game_idx + 1} finished. Positions so far: {len(all_data)}")
 
     return all_data
 
 
-def save_self_play_data(data, save_dir):
+def save_self_play_data(data, config: PrepareRlModelConfig):
+    save_dir = str(config.self_play_data)
     os.makedirs(save_dir, exist_ok=True)
 
     boards = np.array([d[0] for d in data], dtype=np.float32)
