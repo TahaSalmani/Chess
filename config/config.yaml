@@ -56,5 +56,8 @@ prepare_train_torch_model :
 mcts :
   root_dir : artifacts/mcts/trained_mcts.pth
 
+rl_pytorch :
+  self_play_data : artifacts/sef_play_data
+
 
 

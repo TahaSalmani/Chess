@@ -61,8 +61,34 @@ stages:
     deps :
       - artifacts/data_transformation/processed/X.npy
       - artifacts/data_transformation/processed/Y.npy
-      - python src/Chess/pipeline/stage_07_TorchDataset.py
+      - Chess/components/torch_Dataset
     outs :
       - artifacts/torch_dataset/x_tensor.pt
       - artifacts/torch_dataset/y_tensor.pt
+
+  torch_base_model :
+    cmd: python src/Chess/pipeline/stage_08_TorchBaseModel
+    deps :
+      - artifacts/torch_dataset/x_tensor.pt
+      - artifacts/torch_dataset/y_tensor.pt
+      - config/config.yaml
+      - params.yaml
+      - Chess/components/torch_base_model
+    outs:
+      - artifacts/torch_base_model/base_model.pth
+
+  prepare_train_torch_model :
+    cmd : python src/Chess/pipeline/stage_09_Train_Torch_Model
+    deps:
+      - artifacts/torch_dataset/x_tensor.pt
+      - artifacts/torch_dataset/y_tensor.pt
+      - artifacts/torch_base_model/base_model.pth
+      - config/config.yaml
+      - params.yaml
+
+    outs:
+      - artifacts/tensorboard_logs
+      - prepare_torch_callbacks
+
+
 

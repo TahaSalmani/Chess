@@ -19,7 +19,7 @@ class TrainRLPipeline:
         logger.info("Fetching configurations for RL pipeline...")
         base_model_config = self.config_manager.get_torch_base_model()
         training_config = self.config_manager.get_torch_training_config()
-        mcts_config = self.config_manager.get_mcts_config()
+        rl_config = self.config_manager.get_rl_config()
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Using device: {device}")
@@ -35,18 +35,17 @@ class TrainRLPipeline:
             logger.info("No pre-trained weights found. Starting with base model initial weights.")
 
 
-        mcts = MCTS(model=model, device=device, config=mcts_config)
-        logger.info(f"MCTS initialized with {mcts_config.params_MCTS_NUM_SIMULATION} simulations.")
+        mcts = MCTS(model=model, device=device, config=rl_config)
+        logger.info(f"MCTS initialized with {rl_config.params_num_simulation} simulations.")
 
         self_play_data_dir = os.path.join("artifacts", "self_play_data")
         logger.info(">>> Stage 1: Starting Self-Play Data Generation <<<")
 
         self_play_data = generate_self_play_data(
+            self=self,
             model=model,
             device=device,
-            num_games=1000,
-            num_simulations=mcts_config.params_MCTS_NUM_SIMULATION,
-            max_moves=500
+
         )
 
         save_self_play_data(data=self_play_data, save_dir=self_play_data_dir)
@@ -58,6 +57,7 @@ class TrainRLPipeline:
             config=training_config,
             device=device
         )
+
         logger.info("RL Training completed successfully.")
 
 

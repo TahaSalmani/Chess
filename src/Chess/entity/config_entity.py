@@ -75,7 +75,13 @@ class PrepareTorchTrainingConfig :
     params_batch_size: int
     params_learning_rate: float
 @dataclass(frozen=True)
-class PrepareMctsConfig :
+class PrepareRlModelConfig :
     root_dir: Path
-    params_MCTS_NUM_SIMULATION : int
-    params_MCTS_C_PUCT : int
+    params_num_simulation : int
+    params_max_moves : int
+    params_num_games : int
+    self_play_data : Path
+    params_batch_size : int
+    params_learning_rate : float
+    params_epochs : int
+    params_c_puct : float
