@@ -156,11 +156,12 @@ class ConfigurationManager :
     def get_rl_config(self) -> PrepareRlModelConfig :
         config = self.config.prepare_rl_model
         params = self.params
-        create_directories([config.root_dir])
+        create_directories([config.root_dir, config.self_play_data])
         prepare_rl_config = PrepareRlModelConfig(
             root_dir=Path(config.root_dir),
+            self_play_data=Path(config.self_play_data),
             params_max_moves=params.MAX_MOVES,
-            params_num_games=params.Num_Games ,
+            params_num_games=params.NUM_GAMES,
             params_num_simulation=params.NUM_SIMULATION  ,
             params_learning_rate = params.LEARNING_RATE  ,
             params_epochs= params.EPOCHS ,

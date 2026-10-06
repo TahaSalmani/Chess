@@ -8,11 +8,12 @@ from Chess import logger
 
 
 class SelfPlayDataset(Dataset):
-    def __init__(self, data_dir, config: PrepareRlModelConfig):
+    def __init__(self, config: PrepareRlModelConfig):
         self.config = config
-        self.x = torch.load(os.path.join(self.config.self_play_data , 'selfplay_x.pt'))
-        self.policy = torch.load(os.path.join(self.config.self_play_data, 'selfplay_policy.pt'))
-        self.value = torch.load(os.path.join(self.config.self_play_data, 'selfplay_value.pt'))
+        data_dir = str(config.self_play_data)
+        self.x = torch.load(os.path.join(data_dir, 'selfplay_x.pt'))
+        self.policy = torch.load(os.path.join(data_dir, 'selfplay_policy.pt'))
+        self.value = torch.load(os.path.join(data_dir, 'selfplay_value.pt'))
 
     def __len__(self):
         return len(self.x)
@@ -21,13 +22,12 @@ class SelfPlayDataset(Dataset):
         return self.x[idx], self.policy[idx], self.value[idx]
 
 
-def train_rl_step(self , model, data_dir, config: PrepareRlModelConfig, device='cpu'):
-    self.config = config
-    batch_size = self.config.params_batch_size
-    lr = self.config.params_learning_rate
-    epochs = self.config.params_epochs
+def train_rl_step(model, config: PrepareRlModelConfig, device='cpu'):
+    batch_size = config.params_batch_size
+    lr = config.params_learning_rate
+    epochs = config.params_epochs
 
-    dataset = SelfPlayDataset(data_dir, config)
+    dataset = SelfPlayDataset(config)
     dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -73,7 +73,8 @@ def train_rl_step(self , model, data_dir, config: PrepareRlModelConfig, device='
             f"(Policy: {avg_p_loss:.4f}, Value: {avg_v_loss:.4f})"
         )
 
-    os.makedirs("artifacts/prepare_torch_callbacks", exist_ok=True)
-    save_path = "artifacts/prepare_torch_callbacks/rl_trained_model.pth"
+    save_dir = str(config.root_dir)
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, "rl_trained_model.pth")
     torch.save(model.state_dict(), save_path)
     logger.info(f"Updated RL model saved successfully to {save_path}")

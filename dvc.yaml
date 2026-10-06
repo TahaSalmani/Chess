@@ -14,81 +14,77 @@ stages:
     - artifacts/Data/raw_games.pgn
     - config/config.yaml
 
-  prepare_base_Model:
-    cmd: python src/Chess/pipeline/stage_04_PrepareBaseModel.py
+  data_transformation:
+    cmd: python src/Chess/pipeline/stage_03_DataTransformation.py
     deps:
-    - src/Chess/pipeline/stage_04_PrepareBaseModel.py
+    - src/Chess/pipeline/stage_03_DataTransformation.py
+    - src/Chess/components/data_transformation.py
+    - artifacts/Data/raw_games.pgn
+    - artifacts/data_validation/status.json
     - config/config.yaml
-    - params.yaml
     outs:
-    - artifacts/prepare_base_model/base_model_updated.h5
-    - artifacts/prepare_base_model/model.h5
-    params:
-    - IMAGE_SIZE
-    - CLASSES
-    - LEARNING_RATE
-
-  prepare_train_model:
-    cmd: python src/Chess/pipeline/stage_05_TrainModel.py
-    deps:
-    - src/Chess/pipeline/stage_05_TrainModel.py
-    - config/config.yaml
-    - artifacts/data_transformation/processed/X.npy
-    - artifacts/data_transformation/processed/Y.npy
-    - artifacts/prepare_base_model/base_model_updated.h5
-    params:
-    - EPOCHS
-    - BATCH_SIZE
-    - SHUFFLE
-    - VALIDATION_SPLIT
-    - LEARNING_RATE
-    outs:
-    - artifacts/prepare_callbacks/trained_model.h5
-
-  evaluate_base_model:
-    cmd: python src/Chess/pipeline/stage_06_ModelEvaluation
-    deps:
-    - python src/Chess/pipeline/stage_06_ModelEvaluation
-    - config/config.yaml
-    - artifacts/data_transformation/processed/X.npy
-    - artifacts/data_transformation/processed/Y.npy
-    - artifacts/prepare_callbacks/trained_model.h5
-    outs:
-    - artifacts/evaluate/scores
+    - artifacts/data_transformation/X_train.npy
+    - artifacts/data_transformation/y_train.npy
+    - artifacts/data_transformation/X_val.npy
+    - artifacts/data_transformation/y_val.npy
+    - artifacts/data_transformation/X_test.npy
+    - artifacts/data_transformation/y_test.npy
 
   torch_Dataset :
     cmd: python src/Chess/pipeline/stage_07_TorchDataset.py
     deps :
-      - artifacts/data_transformation/processed/X.npy
-      - artifacts/data_transformation/processed/Y.npy
-      - Chess/components/torch_Dataset
+      - src/Chess/pipeline/stage_07_TorchDataset.py
+      - src/Chess/components/torch_Dataset.py
+      - artifacts/data_transformation/X_train.npy
+      - artifacts/data_transformation/y_train.npy
+      - config/config.yaml
     outs :
       - artifacts/torch_dataset/x_tensor.pt
       - artifacts/torch_dataset/y_tensor.pt
 
   torch_base_model :
-    cmd: python src/Chess/pipeline/stage_08_TorchBaseModel
+    cmd: python src/Chess/pipeline/stage_08_TorchBaseModel.py
     deps :
-      - artifacts/torch_dataset/x_tensor.pt
-      - artifacts/torch_dataset/y_tensor.pt
+      - src/Chess/pipeline/stage_08_TorchBaseModel.py
+      - src/Chess/components/torch_base_model.py
       - config/config.yaml
       - params.yaml
-      - Chess/components/torch_base_model
     outs:
       - artifacts/torch_base_model/base_model.pth
 
   prepare_train_torch_model :
-    cmd : python src/Chess/pipeline/stage_09_Train_Torch_Model
+    cmd : python src/Chess/pipeline/stage_09_Train_Torch_Model.py
     deps:
+      - src/Chess/pipeline/stage_09_Train_Torch_Model.py
+      - src/Chess/components/train_torch_base_model.py
       - artifacts/torch_dataset/x_tensor.pt
       - artifacts/torch_dataset/y_tensor.pt
       - artifacts/torch_base_model/base_model.pth
       - config/config.yaml
       - params.yaml
-
+    params:
+      - EPOCHS
+      - BATCH_SIZE
+      - LEARNING_RATE
     outs:
-      - artifacts/tensorboard_logs
-      - prepare_torch_callbacks
+      - artifacts/prepare_torch_callbacks
 
-
-
+  pytorch_rl :
+    cmd : python src/Chess/pipeline/stage_10_Pytorch_RL.py
+    deps:
+      - src/Chess/pipeline/stage_10_Pytorch_RL.py
+      - src/Chess/components/self_play.py
+      - src/Chess/components/train_rl.py
+      - src/Chess/components/Mcts.py
+      - src/Chess/components/policy_value_torch_model.py
+      - artifacts/prepare_torch_callbacks/trained_model.pth
+      - config/config.yaml
+      - params.yaml
+    params:
+      - NUM_SIMULATION
+      - NUM_GAMES
+      - MAX_MOVES
+      - C_PUCT
+    outs:
+      - artifacts/self_play_data
+      - artifacts/rl_model

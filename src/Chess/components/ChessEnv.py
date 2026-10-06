@@ -26,7 +26,7 @@ class ChessEnv(gym.Env):
             matrix[row, col, channel] = 1
         return matrix
 
-    def reset(self , seed : None , options : None ):
+    def reset(self , seed=None, options=None):
         super().reset(seed=seed)
         self.board.reset()
         return self.board_to_matrix(), {}

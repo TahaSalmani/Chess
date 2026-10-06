@@ -13,13 +13,13 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 config_manager = ConfigurationManager()
 base_config = config_manager.get_torch_base_model()
-mcts_config = config_manager.get_mcts_config()
+rl_config = config_manager.get_rl_config()
 
 model = ValuePolicyNet(base_config).to(device)
-model.load_state_dict(torch.load("artifacts/prepare_torch_callbacks/rl_trained_model.pth", map_location=device))
+model.load_state_dict(torch.load("artifacts/rl_model/rl_trained_model.pth", map_location=device))
 model.eval()
 
-mcts = MCTS(model=model, device=device, config=mcts_config)
+mcts = MCTS(model=model, device=device, config=rl_config)
 
 board = chess.Board()
 

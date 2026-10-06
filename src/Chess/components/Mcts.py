@@ -2,11 +2,10 @@ import math
 import numpy as np
 import torch
 import chess
-from Chess.config.configuration import PrepareRlModelConfig
+from Chess.entity.config_entity import PrepareRlModelConfig
 
 class MCTSNode:
-    def __init__(self, board: chess.Board, parent=None, prior: float = 0.0 , config = PrepareRlModelConfig):
-        self.config = config
+    def __init__(self, board: chess.Board, parent=None, prior: float = 0.0):
         self.board = board
         self.parent = parent
         self.children = {}
@@ -24,7 +23,7 @@ class MCTSNode:
 
 
 class MCTS:
-    def __init__(self, model, device,config = PrepareRlModelConfig):
+    def __init__(self, model, device, config: PrepareRlModelConfig):
         self.config = config
         self.model = model
         self.device = device
