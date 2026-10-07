@@ -167,5 +167,6 @@ class ConfigurationManager :
             params_epochs= params.EPOCHS ,
             params_batch_size= params.BATCH_SIZE ,
             params_c_puct= params.C_PUCT,
+            params_pool_size= int(params.get("POOL_SIZE", 32)),
         )
         return prepare_rl_config

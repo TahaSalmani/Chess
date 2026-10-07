@@ -37,7 +37,8 @@ class TrainRLPipeline:
 
         logger.info(
             f"MCTS config: {rl_config.params_num_simulation} simulations | "
-            f"{rl_config.params_num_games} games | max {rl_config.params_max_moves} moves"
+            f"{rl_config.params_num_games} games | max {rl_config.params_max_moves} moves | "
+            f"pool size {rl_config.params_pool_size}"
         )
 
         logger.info(">>> Stage 1: Starting Self-Play Data Generation <<<")

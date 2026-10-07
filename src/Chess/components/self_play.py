@@ -1,67 +1,117 @@
 import os
+import time
+
 import chess
 import numpy as np
 import torch
+
 from Chess import logger
-from Chess.components.Mcts import MCTS
+from Chess.components.Mcts import MCTS, MCTSNode, board_to_array
 from Chess.entity.config_entity import PrepareRlModelConfig
 
 
-def play_one_game(model, device, config: PrepareRlModelConfig):
-    board = chess.Board()
-    mcts = MCTS(model=model, device=device, config=config)
+class SelfPlayGame:
+    __slots__ = ("board", "history", "move_count")
 
-    game_history = []
-    move_count = 0
+    def __init__(self):
+        self.board = chess.Board()
+        self.history = []
+        self.move_count = 0
 
-    while not board.is_game_over() and move_count < config.params_max_moves:
-        root = mcts.run(board)
+    def is_done(self, max_moves: int) -> bool:
+        return self.board.is_game_over() or self.move_count >= max_moves
 
-        visit_counts = np.zeros(4096, dtype=np.float32)
-        for move, child in root.children.items():
-            idx = move.from_square * 64 + move.to_square
-            visit_counts[idx] = child.visit_count
+    def result(self) -> float:
+        if self.board.is_checkmate():
+            return 1.0 if self.board.turn == chess.BLACK else -1.0
+        return 0.0
 
-        total_visits = visit_counts.sum()
-        if total_visits == 0:
-            logger.info("No children explored, stopping game early.")
-            break
-
-        policy_target = visit_counts / total_visits
-
-        board_matrix = mcts.board_to_tensor(board).squeeze(0).cpu().numpy()
-        game_history.append((board_matrix, policy_target, board.turn))
-
-        best_move = max(root.children.items(), key=lambda item: item[1].visit_count)[0]
-        board.push(best_move)
-
-        move_count += 1
-        logger.info(f"Move {move_count}: {best_move}")
-
-    if board.is_checkmate():
-        result = 1.0 if board.turn == chess.BLACK else -1.0
-    else:
-        result = 0.0
-
-    logger.info(f"Game finished after {move_count} moves. Result (White perspective): {result}")
-
-    training_data = []
-    for board_matrix, policy_target, player in game_history:
-        value_target = result if player == chess.WHITE else -result
-        training_data.append((board_matrix, policy_target, value_target))
-
-    return training_data
+    def training_data(self):
+        result = self.result()
+        return [
+            (position, policy, result if player == chess.WHITE else -result)
+            for position, policy, player in self.history
+        ]
 
 
 def generate_self_play_data(model, device, config: PrepareRlModelConfig):
+    """Play `num_games` games with several of them searched in lockstep.
+
+    Games sharing a slot count means every MCTS simulation evaluates them all
+    in one batched forward pass instead of one forward per game.
+    """
+    mcts = MCTS(model=model, device=device, config=config)
+    num_games = int(config.params_num_games)
+    max_moves = int(config.params_max_moves)
+    pool_size = max(1, min(int(config.params_pool_size), num_games))
+
+    logger.info(
+        f"Self-play: {num_games} games | {config.params_num_simulation} simulations/move | "
+        f"max {max_moves} moves | {pool_size} games batched per forward"
+    )
+
+    slots = [SelfPlayGame() for _ in range(pool_size)]
+    started = pool_size
+    finished = 0
+    rounds = 0
     all_data = []
+    started_at = time.time()
 
-    for game_idx in range(config.params_num_games):
-        logger.info(f"--- Starting self-play game {game_idx + 1}/{config.params_num_games} ---")
-        game_data = play_one_game(model=model, device=device, config=config)
-        all_data.extend(game_data)
-        logger.info(f"Game {game_idx + 1} finished. Positions so far: {len(all_data)}")
+    while finished < num_games:
+        active = [i for i, game in enumerate(slots) if game is not None]
+        if not active:
+            break
 
+        roots = [MCTSNode(board=slots[i].board.copy()) for i in active]
+        mcts.search_batch(roots)
+        rounds += 1
+
+        for i, root in zip(active, roots):
+            game = slots[i]
+            counts = MCTS.visit_counts(root)
+            total = counts.sum()
+            best = MCTS.best_move(root)
+
+            if total > 0 and best is not None:
+                game.history.append((board_to_array(game.board), counts / total, game.board.turn))
+                game.board.push(best)
+                game.move_count += 1
+            else:
+                logger.warning(f"Slot {i} produced no visits, retiring that game.")
+
+            if not game.is_done(max_moves):
+                continue
+
+            all_data.extend(game.training_data())
+            finished += 1
+            logger.info(
+                f"Game {finished}/{num_games} done | {game.move_count} moves | "
+                f"result (White) {game.result():+.1f} | positions {len(all_data)}"
+            )
+
+            if started < num_games:
+                slots[i] = SelfPlayGame()
+                started += 1
+            else:
+                slots[i] = None
+
+        if rounds % 10 == 0:
+            elapsed = time.time() - started_at
+            progress = min(1.0, rounds / max_moves)
+            eta = elapsed / progress * (1 - progress) if progress > 0 else 0.0
+            live = sum(1 for g in slots if g is not None)
+            logger.info(
+                f"round {rounds}/{max_moves} | in flight {live} | finished {finished}/{num_games} "
+                f"({finished / num_games * 100:.0f}%) | positions {len(all_data)} | "
+                f"forwards {mcts.forward_calls} x{mcts.positions_evaluated // max(mcts.forward_calls, 1)} | "
+                f"elapsed {elapsed / 60:.1f}m | ETA {eta / 60:.1f}m"
+            )
+
+    logger.info(
+        f"Self-play finished: {finished} games, {len(all_data)} positions, "
+        f"{mcts.forward_calls} forward calls for {mcts.positions_evaluated} evaluations "
+        f"in {(time.time() - started_at) / 60:.1f} min"
+    )
     return all_data
 
 
@@ -69,13 +119,9 @@ def save_self_play_data(data, config: PrepareRlModelConfig):
     save_dir = str(config.self_play_data)
     os.makedirs(save_dir, exist_ok=True)
 
-    boards = np.array([d[0] for d in data], dtype=np.float32)
-    policies = np.array([d[1] for d in data], dtype=np.float32)
-    values = np.array([d[2] for d in data], dtype=np.float32)
-
-    x_tensor = torch.tensor(boards)
-    policy_tensor = torch.tensor(policies)
-    value_tensor = torch.tensor(values)
+    x_tensor = torch.from_numpy(np.stack([d[0] for d in data]))
+    policy_tensor = torch.from_numpy(np.stack([d[1] for d in data]))
+    value_tensor = torch.from_numpy(np.asarray([d[2] for d in data], dtype=np.float32))
 
     torch.save(x_tensor, os.path.join(save_dir, "selfplay_x.pt"))
     torch.save(policy_tensor, os.path.join(save_dir, "selfplay_policy.pt"))
