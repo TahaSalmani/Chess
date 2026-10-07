@@ -85,3 +85,4 @@ class PrepareRlModelConfig :
     params_learning_rate : float
     params_epochs : int
     params_c_puct : float
+    params_pool_size : int
