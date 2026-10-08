@@ -87,6 +87,16 @@ class TrainTorchBaseModel:
         optimizer = torch.optim.Adam(model.parameters(), lr=self.config.params_learning_rate)
         criterion = torch.nn.CrossEntropyLoss()
 
+        # A 10-layer transformer at lr 3e-4 with no warmup collapses to predicting the
+        # marginal move distribution; ramp up over the first 10% of steps instead.
+        total_steps = self.config.params_epochs * len(train_loader)
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=self.config.params_learning_rate,
+            total_steps=total_steps,
+            pct_start=0.1,
+        )
+
         checkpoint_path = os.path.join(self.config.root_dir, "best_model.pth")
         checkpoint = ModelCheckpoint(filepath=checkpoint_path)
         early_stopping = EarlyStopping(patience=getattr(self.config, 'params_PATIENCE', 5))
@@ -106,6 +116,7 @@ class TrainTorchBaseModel:
 
                 loss.backward()
                 optimizer.step()
+                scheduler.step()
 
                 running_loss += loss.item()
                 if i % 10 == 0 or i == total_batches:

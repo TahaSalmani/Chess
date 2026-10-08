@@ -22,21 +22,23 @@ class  TransformerEncoderBlock(nn.Module) :
         self.dropout = nn.Dropout(0.1)
 
     def forward(self, x):
-        attn_out , _ = self.attn(x , x , x ) ### query , key , value
-        x = self.norm1(x + self.dropout(attn_out))
-        ffn_out = self.ffn(x)
-        x = self.norm2(x+ self.dropout(ffn_out))
-        return x
+        h = self.norm1(x)
+        attn_out , _ = self.attn(h , h , h ) ### query , key , value
+        x = x + self.dropout(attn_out)
+        h = self.norm2(x)
+        return x + self.dropout(self.ffn(h))
 
 class ChessPolicyNet(nn.Module):
     def __init__(self, config:PrepareTorchBaseModelConfig):
         super().__init__()
         self.config = config
         self.input_proj = nn.Linear(self.config.params_IN_CHANNELS, self.config.params_D_MODEL)
-        self.pos_embd = nn.Parameter(torch.randn(1,64 , self.config.params_D_MODEL))
+        # std 1.0 here is ~5x the magnitude of input_proj(x) and swamps the piece signal
+        self.pos_embd = nn.Parameter(torch.randn(1,64 , self.config.params_D_MODEL) * 0.02)
         self.blocks = nn.ModuleList([
             TransformerEncoderBlock(self.config) for _ in range(self.config.params_NUM_LAYERS)
         ])
+        self.final_norm = nn.LayerNorm(self.config.params_D_MODEL)
         self.fc = nn.Linear(self.config.params_D_MODEL, 256)
         self.relu = nn.ReLU()
         self.out = nn.Linear(256 , self.config.params_NUM_MOVES)
@@ -49,7 +51,7 @@ class ChessPolicyNet(nn.Module):
         for block in self.blocks:
             x = block(x)
 
-        x = x.mean(dim=1)
+        x = self.final_norm(x).mean(dim=1)
         x = self.relu(self.fc(x))
         return self.out(x)
 
