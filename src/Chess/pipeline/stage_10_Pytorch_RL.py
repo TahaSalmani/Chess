@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 import torch
 from Chess import logger
 from Chess.config.configuration import ConfigurationManager
@@ -25,13 +27,26 @@ class TrainRLPipeline:
         model = ValuePolicyNet(config=base_model_config).to(device)
 
         rl_weights_path = os.path.join(str(rl_config.root_dir), "rl_trained_model.pth")
-        supervised_weights_path = str(training_config.trained_model_path)
+        best_weights_path = str(Path(training_config.trained_model_path).with_name("best_model.pth"))
+        supervised_weights_path = best_weights_path if os.path.exists(best_weights_path) else str(training_config.trained_model_path)
         if os.path.exists(rl_weights_path):
             logger.info(f"Loading previous RL weights from: {rl_weights_path}")
             model.load_state_dict(torch.load(rl_weights_path, map_location=device))
         elif os.path.exists(supervised_weights_path):
             logger.info(f"Loading supervised weights from: {supervised_weights_path}")
-            model.load_state_dict(torch.load(supervised_weights_path, map_location=device), strict=False)
+            missing, _ = model.load_state_dict(
+                torch.load(supervised_weights_path, map_location=device), strict=False
+            )
+            # value_fc/value_out are expected to be absent on the first RL bootstrap;
+            # anything else missing means the checkpoint does not match this architecture.
+            unexpected_missing = [k for k in missing if not k.startswith(("value_fc", "value_out"))]
+            if unexpected_missing:
+                raise RuntimeError(
+                    f"{supervised_weights_path} is missing {len(unexpected_missing)} keys that "
+                    f"ValuePolicyNet expects (e.g. {unexpected_missing[0]}). It was saved by a "
+                    f"different architecture or NUM_LAYERS={base_model_config.params_NUM_LAYERS} "
+                    f"does not match. Re-run stage 09 instead of bootstrapping RL from it."
+                )
         else:
             logger.info("No pre-trained weights found. Starting with base model initial weights.")
 

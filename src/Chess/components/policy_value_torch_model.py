@@ -12,10 +12,11 @@ class ValuePolicyNet(nn.Module):
         super().__init__()
         self.config = config
         self.input_proj = nn.Linear(config.params_IN_CHANNELS  , config.params_D_MODEL)
-        self.pos_embd = nn.Parameter(torch.randn(1,64 , config.params_D_MODEL))
+        self.pos_embd = nn.Parameter(torch.randn(1,64 , config.params_D_MODEL) * 0.02)
         self.blocks = nn.ModuleList([
             TransformerEncoderBlock(config) for _ in range(config.params_NUM_LAYERS)
         ])
+        self.final_norm = nn.LayerNorm(config.params_D_MODEL)
         self.fc = nn.Linear(config.params_D_MODEL, 256)
         self.out = nn.Linear(256, config.params_NUM_MOVES)
 
@@ -34,7 +35,7 @@ class ValuePolicyNet(nn.Module):
         for block in self.blocks:
             x = block(x)
 
-        pooled = x.mean(dim=1)
+        pooled = self.final_norm(x).mean(dim=1)
 
 
         policy_logits = self.out(self.relu(self.fc(pooled)))
