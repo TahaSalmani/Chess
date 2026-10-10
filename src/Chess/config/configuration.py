@@ -163,7 +163,7 @@ class ConfigurationManager :
             params_max_moves=params.MAX_MOVES,
             params_num_games=params.NUM_GAMES,
             params_num_simulation=params.NUM_SIMULATION  ,
-            params_learning_rate = params.LEARNING_RATE  ,
+            params_learning_rate = float(params.get("RL_LEARNING_RATE", params.LEARNING_RATE)),
             params_epochs= params.EPOCHS ,
             params_batch_size= params.BATCH_SIZE ,
             params_c_puct= params.C_PUCT,

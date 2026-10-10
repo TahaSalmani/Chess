@@ -87,8 +87,12 @@ class TrainTorchBaseModel:
         optimizer = torch.optim.Adam(model.parameters(), lr=self.config.params_learning_rate)
         criterion = torch.nn.CrossEntropyLoss()
 
-        # A 10-layer transformer at lr 3e-4 with no warmup collapses to predicting the
-        # marginal move distribution; ramp up over the first 10% of steps instead.
+        use_amp = device.type == "cuda"
+        scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+        logger.info(f"Mixed precision: {'on' if use_amp else 'off'}")
+
+        # A 10-layer transformer started at full lr with no warmup collapses to predicting
+        # the marginal move distribution; ramp up over the first 10% of steps instead.
         total_steps = self.config.params_epochs * len(train_loader)
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
@@ -103,6 +107,8 @@ class TrainTorchBaseModel:
 
         logger.info("Starting Training...")
         total_batches = len(train_loader)
+        # keep roughly one progress line per 5% of an epoch whatever the batch size is
+        log_every = max(10, total_batches // 20)
         for epoch in range(self.config.params_epochs):
             model.train()
             running_loss = 0.0
@@ -111,15 +117,17 @@ class TrainTorchBaseModel:
                 batch_x, batch_y = batch_x.to(device), batch_y.to(device)
 
                 optimizer.zero_grad()
-                outputs = model(batch_x)
-                loss = criterion(outputs, batch_y)
+                with torch.amp.autocast("cuda", enabled=use_amp):
+                    outputs = model(batch_x)
+                    loss = criterion(outputs, batch_y)
 
-                loss.backward()
-                optimizer.step()
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
                 scheduler.step()
 
                 running_loss += loss.item()
-                if i % 10 == 0 or i == total_batches:
+                if i % log_every == 0 or i == total_batches:
                     current_avg_loss = running_loss / i
                     logger.info(
                         f"Epoch [{epoch + 1}/{self.config.params_epochs}] | "
@@ -135,8 +143,9 @@ class TrainTorchBaseModel:
             with torch.no_grad():
                 for i, (batch_x, batch_y) in enumerate(val_loader):
                     batch_x, batch_y = batch_x.to(device), batch_y.to(device)
-                    outputs = model(batch_x)
-                    loss = criterion(outputs, batch_y)
+                    with torch.amp.autocast("cuda", enabled=use_amp):
+                        outputs = model(batch_x)
+                        loss = criterion(outputs, batch_y)
                     val_loss += loss.item()
 
             val_loss = val_loss / len(val_loader)
