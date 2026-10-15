@@ -2,12 +2,17 @@ from pathlib import Path
 from typing import Union
 
 from Chess import logger
+from Chess.components.encoding import board_to_array
 from Chess.entity.config_entity import DataTransformationConfig
 
 import chess
 import chess.pgn as pgn
 import numpy as np
 from sklearn.model_selection import train_test_split
+
+# Imitating mixed-strength games teaches the policy to blunder. Keeping only
+# games where BOTH players are at least this strong yields a cleaner prior.
+MIN_ELO = 1800
 
 
 class DataTransformation:
@@ -18,17 +23,7 @@ class DataTransformation:
         self.config = config
 
     def board_to_matrix(self, board: chess.Board) -> np.ndarray:
-        matrix = np.zeros((8, 8, 12), dtype=np.uint8)
-        piece_map = board.piece_map()
-
-        for square, piece in piece_map.items():
-            row, col = divmod(square, 8)
-            piece_type = piece.piece_type - 1
-            color = 0 if piece.color else 6
-            channel = piece_type + color
-            matrix[row, col, channel] = 1
-
-        return matrix
+        return board_to_array(board, dtype=np.uint8)
 
     def move_to_index(self, move: chess.Move) -> int:
         from_sq = move.from_square
@@ -63,7 +58,7 @@ class DataTransformation:
                 except ValueError:
                     continue
 
-                if white_elo < 1200 or black_elo < 1200:
+                if white_elo < MIN_ELO or black_elo < MIN_ELO:
                     continue
 
                 termination = headers.get("Termination", "")
