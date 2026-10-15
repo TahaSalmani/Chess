@@ -62,18 +62,21 @@ class PolicyAgent:
 
 
 class PolicySearchAgent:
-    """Policy-guided 2-ply material search: the network supplies a short list of
-    candidate moves (top-K by logit) and a tie-break, while a shallow search that
-    answers each candidate with the opponent's best material reply decides which
-    one is safe. This keeps the learned prior but stops the 1-ply blindness that
-    makes the raw argmax hang pieces.
+    """Policy-guided tactical search: the network supplies a short list of root
+    candidate moves (top-K by logit) and a tie-break, while a capture-quiescence
+    search with alpha-beta and incremental material scoring decides which one is
+    safe. Unlike a fixed 2-ply lookahead this follows capture/recapture chains to
+    a quiet position, so trades and hanging pieces are evaluated correctly.
     """
 
-    def __init__(self, model, device, name, top_k=6):
+    MATE = 100000.0
+
+    def __init__(self, model, device, name, top_k=6, qdepth=4):
         self.model = model
         self.device = device
         self.name = name
         self.top_k = int(top_k)
+        self.qdepth = int(qdepth)
         self.model.eval()
 
     def _logits(self, board):
@@ -82,33 +85,63 @@ class PolicySearchAgent:
             out = self.model(x)
         return (out[0] if isinstance(out, tuple) else out)[0].cpu().numpy()
 
+    @staticmethod
+    def _material(board):
+        mat = 0
+        for p in board.piece_map().values():
+            v = PIECE_VALUE.get(p.piece_type, 0)
+            mat += v if p.color == chess.WHITE else -v
+        return mat
+
+    def _qsearch(self, board, mat, alpha, beta, depth):
+        """Negamax over captures only; returns score for the side to move."""
+        stand = mat if board.turn == chess.WHITE else -mat
+        if depth == 0:
+            return stand
+        best = stand
+        for move in board.legal_moves:
+            target = board.piece_at(move.to_square)
+            if target is None:
+                continue  # tactical search: captures only
+            v = PIECE_VALUE.get(target.piece_type, 0)
+            newmat = mat - v if target.color == chess.WHITE else mat + v
+            board.push(move)
+            if board.is_checkmate():
+                child = -self.MATE  # side to move in child is mated
+            else:
+                child = self._qsearch(board, newmat, -beta, -alpha, depth - 1)
+            board.pop()
+            val = -child
+            if val > best:
+                best = val
+                if best > alpha:
+                    alpha = best
+                if alpha >= beta:
+                    break
+        return best
+
     def choose(self, board):
         logits = self._logits(board)
         legal = list(board.legal_moves)
         scores = [logits[m.from_square * 64 + m.to_square] for m in legal]
         order = sorted(range(len(legal)), key=lambda i: scores[i], reverse=True)
         candidates = [legal[i] for i in order[: self.top_k]]
+        mat0 = self._material(board)
 
         best = None
         best_key = None
         for rank, move in enumerate(candidates):
-            captured = board.piece_at(move.to_square)
-            our_gain = PIECE_VALUE.get(captured.piece_type, 0) if captured else 0
+            target = board.piece_at(move.to_square)
+            v = PIECE_VALUE.get(target.piece_type, 0) if target else 0
+            newmat = mat0 - v if (target and target.color == chess.WHITE) else mat0 + v
             board.push(move)
             if board.is_checkmate():
-                score = 1e6
+                score = self.MATE
             elif board.is_stalemate():
                 score = -0.5  # do not stalemate a winning position
             else:
-                our_color = not board.turn
-                opp_best = 0
-                for reply in board.legal_moves:
-                    p = board.piece_at(reply.to_square)
-                    if p is not None and p.color == our_color:
-                        v = PIECE_VALUE.get(p.piece_type, 0)
-                        if v > opp_best:
-                            opp_best = v
-                score = our_gain - opp_best
+                # child is from the opponent's perspective; flip to ours
+                score = -self._qsearch(board, newmat, -self.MATE, self.MATE, self.qdepth)
             board.pop()
             # prefer higher search score; break ties toward the stronger policy move
             key = (score, -rank)
@@ -235,6 +268,7 @@ def main():
     parser.add_argument("--no-mcts", action="store_true", help="play the RL policy argmax instead of MCTS (much faster, weaker)")
     parser.add_argument("--search", action="store_true", help="also play the supervised policy through a 2-ply material search (policy-guided)")
     parser.add_argument("--search-k", type=int, default=6, help="top-K policy candidates for --search")
+    parser.add_argument("--search-depth", type=int, default=4, help="capture-quiescence depth (plies of captures) for --search")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
@@ -278,7 +312,7 @@ def main():
             results[(agent.name, opp.name)] = report(f"{agent.name} vs {opp.name}", stats, log)
 
         if args.search:
-            sagent = PolicySearchAgent(net, device, f"supervised-search(k{args.search_k})", top_k=args.search_k)
+            sagent = PolicySearchAgent(net, device, f"supervised-search(k{args.search_k},d{args.search_depth})", top_k=args.search_k, qdepth=args.search_depth)
             log(f"\n=== {sagent.name} ===")
             for opp in opponents:
                 log(f"vs {opp.name}:")
