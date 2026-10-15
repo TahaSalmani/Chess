@@ -10,6 +10,10 @@ import chess.pgn as pgn
 import numpy as np
 from sklearn.model_selection import train_test_split
 
+# Imitating mixed-strength games teaches the policy to blunder. Keeping only
+# games where BOTH players are at least this strong yields a cleaner prior.
+MIN_ELO = 1800
+
 
 class DataTransformation:
 
@@ -54,7 +58,7 @@ class DataTransformation:
                 except ValueError:
                     continue
 
-                if white_elo < 1200 or black_elo < 1200:
+                if white_elo < MIN_ELO or black_elo < MIN_ELO:
                     continue
 
                 termination = headers.get("Termination", "")
