@@ -62,20 +62,21 @@ class PolicyAgent:
 
 
 class PolicySearchAgent:
-    """Policy-guided tactical search: the network supplies a short list of root
-    candidate moves (top-K by logit) and a tie-break, while a capture-quiescence
-    search with alpha-beta and incremental material scoring decides which one is
-    safe. Unlike a fixed 2-ply lookahead this follows capture/recapture chains to
-    a quiet position, so trades and hanging pieces are evaluated correctly.
+    """Policy-guided full-width search: a negamax alpha-beta over ALL legal moves
+    to a fixed depth, with capture-quiescence and incremental material scoring at
+    the leaves. The network policy only orders root moves (for alpha-beta
+    efficiency) and breaks ties -- it never prunes them -- so a competent search
+    can override a weak prior instead of being blinded by it.
     """
 
     MATE = 100000.0
 
-    def __init__(self, model, device, name, top_k=6, qdepth=4):
+    def __init__(self, model, device, name, top_k=0, depth=2, qdepth=4):
         self.model = model
         self.device = device
         self.name = name
-        self.top_k = int(top_k)
+        self.top_k = int(top_k)  # 0 = search every root move
+        self.depth = int(depth)
         self.qdepth = int(qdepth)
         self.model.eval()
 
@@ -120,17 +121,47 @@ class PolicySearchAgent:
                     break
         return best
 
+    def _negamax(self, board, mat, depth, alpha, beta):
+        """Full-width negamax over all legal moves; leaves drop into capture
+        quiescence. Returns score for the side to move."""
+        if depth == 0:
+            return self._qsearch(board, mat, alpha, beta, self.qdepth)
+        best = -self.MATE * 2
+        for move in board.legal_moves:
+            target = board.piece_at(move.to_square)
+            v = PIECE_VALUE.get(target.piece_type, 0) if target else 0
+            newmat = mat - v if (target and target.color == chess.WHITE) else mat + v
+            board.push(move)
+            if board.is_checkmate():
+                child = -self.MATE
+            elif board.is_stalemate():
+                child = 0.0
+            else:
+                child = self._negamax(board, newmat, depth - 1, -beta, -alpha)
+            board.pop()
+            val = -child
+            if val > best:
+                best = val
+                if best > alpha:
+                    alpha = best
+                if alpha >= beta:
+                    break
+        return best
+
     def choose(self, board):
         logits = self._logits(board)
         legal = list(board.legal_moves)
         scores = [logits[m.from_square * 64 + m.to_square] for m in legal]
         order = sorted(range(len(legal)), key=lambda i: scores[i], reverse=True)
-        candidates = [legal[i] for i in order[: self.top_k]]
+        # search every move (policy only orders them for alpha-beta efficiency);
+        # top_k>0 optionally narrows the root for speed at the cost of strength
+        if self.top_k > 0:
+            order = order[: self.top_k]
         mat0 = self._material(board)
 
         best = None
-        best_key = None
-        for rank, move in enumerate(candidates):
+        best_score = None
+        for move in (legal[i] for i in order):
             target = board.piece_at(move.to_square)
             v = PIECE_VALUE.get(target.piece_type, 0) if target else 0
             newmat = mat0 - v if (target and target.color == chess.WHITE) else mat0 + v
@@ -141,12 +172,11 @@ class PolicySearchAgent:
                 score = -0.5  # do not stalemate a winning position
             else:
                 # child is from the opponent's perspective; flip to ours
-                score = -self._qsearch(board, newmat, -self.MATE, self.MATE, self.qdepth)
+                score = -self._negamax(board, newmat, self.depth - 1, -self.MATE * 2, self.MATE * 2)
             board.pop()
-            # prefer higher search score; break ties toward the stronger policy move
-            key = (score, -rank)
-            if best_key is None or key > best_key:
-                best_key = key
+            # strict > keeps the higher-policy move on ties (order is policy-sorted)
+            if best_score is None or score > best_score:
+                best_score = score
                 best = move
         return best
 
@@ -321,8 +351,9 @@ def main():
     parser.add_argument("--mcts-sims", type=int, default=50, help="MCTS simulations per move for the RL agent")
     parser.add_argument("--no-mcts", action="store_true", help="play the RL policy argmax instead of MCTS (much faster, weaker)")
     parser.add_argument("--search", action="store_true", help="also play the supervised policy through a 2-ply material search (policy-guided)")
-    parser.add_argument("--search-k", type=int, default=6, help="top-K policy candidates for --search")
-    parser.add_argument("--search-depth", type=int, default=4, help="capture-quiescence depth (plies of captures) for --search")
+    parser.add_argument("--search-k", type=int, default=0, help="root candidate cap for --search (0 = search every move; >0 narrows for speed)")
+    parser.add_argument("--search-depth", type=int, default=2, help="full-width negamax plies for --search")
+    parser.add_argument("--qdepth", type=int, default=4, help="capture-quiescence plies at search leaves for --search")
     parser.add_argument("--hard-opp", action="store_true", help="also play a depth-2 material minimax opponent for a stricter strength read")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
@@ -369,7 +400,7 @@ def main():
             results[(agent.name, opp.name)] = report(f"{agent.name} vs {opp.name}", stats, log)
 
         if args.search:
-            sagent = PolicySearchAgent(net, device, f"supervised-search(k{args.search_k},d{args.search_depth})", top_k=args.search_k, qdepth=args.search_depth)
+            sagent = PolicySearchAgent(net, device, f"supervised-search(d{args.search_depth},q{args.qdepth})", top_k=args.search_k, depth=args.search_depth, qdepth=args.qdepth)
             log(f"\n=== {sagent.name} ===")
             for opp in opponents:
                 log(f"vs {opp.name}:")
