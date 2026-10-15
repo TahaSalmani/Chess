@@ -47,10 +47,8 @@ class DataTransformation:
                 logger.error("Status file validation failed")
                 raise ValueError("Validation status is False")
 
-        max_games = 10000
         with open(self.config.data_path, "r", encoding="utf-8") as f:
-
-            while  games_count < max_games:
+            while True:
 
                 game = chess.pgn.read_game(f)
 
