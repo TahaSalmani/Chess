@@ -204,6 +204,60 @@ class GreedyOpponent:
         return random.choice(best_moves)
 
 
+class MinimaxOpponent:
+    """Full-width material minimax with alpha-beta at a fixed depth. A stricter
+    sparring partner than the 1-ply greedy mover: it sees one extra ply, so it
+    both takes free material and avoids hanging its own pieces. Used to gauge
+    the model's strength against something closer to a real beginner.
+    """
+
+    def __init__(self, depth=2):
+        self.name = f"minimax-d{depth}"
+        self.depth = int(depth)
+
+    def _mat(self, board):
+        mat = 0
+        for p in board.piece_map().values():
+            v = PIECE_VALUE.get(p.piece_type, 0)
+            mat += v if p.color == chess.WHITE else -v
+        return mat
+
+    def _negamax(self, board, depth, alpha, beta):
+        if board.is_checkmate():
+            return -PolicySearchAgent.MATE
+        if board.is_stalemate() or board.is_insufficient_material():
+            return 0.0
+        if depth == 0:
+            m = self._mat(board)
+            return float(m) if board.turn == chess.WHITE else float(-m)
+        best = -1e18
+        for move in board.legal_moves:
+            board.push(move)
+            val = -self._negamax(board, depth - 1, -beta, -alpha)
+            board.pop()
+            if val > best:
+                best = val
+                if best > alpha:
+                    alpha = best
+                if alpha >= beta:
+                    break
+        return best
+
+    def choose(self, board):
+        best_score = -1e18
+        best_moves = []
+        for move in board.legal_moves:
+            board.push(move)
+            val = -self._negamax(board, self.depth - 1, -1e18, 1e18)
+            board.pop()
+            if val > best_score:
+                best_score = val
+                best_moves = [move]
+            elif val == best_score:
+                best_moves.append(move)
+        return random.choice(best_moves)
+
+
 def play_game(white, black, max_plies=MAX_PLIES):
     """Returns (result_from_white, plies, reason). result: +1 white, -1 black, 0 draw."""
     board = chess.Board()
@@ -269,6 +323,7 @@ def main():
     parser.add_argument("--search", action="store_true", help="also play the supervised policy through a 2-ply material search (policy-guided)")
     parser.add_argument("--search-k", type=int, default=6, help="top-K policy candidates for --search")
     parser.add_argument("--search-depth", type=int, default=4, help="capture-quiescence depth (plies of captures) for --search")
+    parser.add_argument("--hard-opp", action="store_true", help="also play a depth-2 material minimax opponent for a stricter strength read")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
@@ -298,6 +353,8 @@ def main():
         sys.exit(2)
 
     opponents = [RandomOpponent(), GreedyOpponent()]
+    if args.hard_opp:
+        opponents.append(MinimaxOpponent(depth=2))
     results = {}
 
     # --- supervised policy model (policy argmax; no value head, so no MCTS) ---
