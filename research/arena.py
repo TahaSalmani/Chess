@@ -61,6 +61,63 @@ class PolicyAgent:
         return _legal_scored(board, logits)
 
 
+class PolicySearchAgent:
+    """Policy-guided 2-ply material search: the network supplies a short list of
+    candidate moves (top-K by logit) and a tie-break, while a shallow search that
+    answers each candidate with the opponent's best material reply decides which
+    one is safe. This keeps the learned prior but stops the 1-ply blindness that
+    makes the raw argmax hang pieces.
+    """
+
+    def __init__(self, model, device, name, top_k=6):
+        self.model = model
+        self.device = device
+        self.name = name
+        self.top_k = int(top_k)
+        self.model.eval()
+
+    def _logits(self, board):
+        x = torch.from_numpy(board_to_array(board)[None]).to(self.device)
+        with torch.no_grad():
+            out = self.model(x)
+        return (out[0] if isinstance(out, tuple) else out)[0].cpu().numpy()
+
+    def choose(self, board):
+        logits = self._logits(board)
+        legal = list(board.legal_moves)
+        scores = [logits[m.from_square * 64 + m.to_square] for m in legal]
+        order = sorted(range(len(legal)), key=lambda i: scores[i], reverse=True)
+        candidates = [legal[i] for i in order[: self.top_k]]
+
+        best = None
+        best_key = None
+        for rank, move in enumerate(candidates):
+            captured = board.piece_at(move.to_square)
+            our_gain = PIECE_VALUE.get(captured.piece_type, 0) if captured else 0
+            board.push(move)
+            if board.is_checkmate():
+                score = 1e6
+            elif board.is_stalemate():
+                score = -0.5  # do not stalemate a winning position
+            else:
+                our_color = not board.turn
+                opp_best = 0
+                for reply in board.legal_moves:
+                    p = board.piece_at(reply.to_square)
+                    if p is not None and p.color == our_color:
+                        v = PIECE_VALUE.get(p.piece_type, 0)
+                        if v > opp_best:
+                            opp_best = v
+                score = our_gain - opp_best
+            board.pop()
+            # prefer higher search score; break ties toward the stronger policy move
+            key = (score, -rank)
+            if best_key is None or key > best_key:
+                best_key = key
+                best = move
+        return best
+
+
 class MctsAgent:
     """Plays via PUCT search using the value+policy head. Stronger than the raw
     policy argmax and is how the RL model is actually meant to be used."""
@@ -176,6 +233,8 @@ def main():
     parser.add_argument("--games", type=int, default=20, help="games per matchup")
     parser.add_argument("--mcts-sims", type=int, default=50, help="MCTS simulations per move for the RL agent")
     parser.add_argument("--no-mcts", action="store_true", help="play the RL policy argmax instead of MCTS (much faster, weaker)")
+    parser.add_argument("--search", action="store_true", help="also play the supervised policy through a 2-ply material search (policy-guided)")
+    parser.add_argument("--search-k", type=int, default=6, help="top-K policy candidates for --search")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
@@ -217,6 +276,14 @@ def main():
             log(f"vs {opp.name}:")
             stats = run_match(agent, opp, args.games, log)
             results[(agent.name, opp.name)] = report(f"{agent.name} vs {opp.name}", stats, log)
+
+        if args.search:
+            sagent = PolicySearchAgent(net, device, f"supervised-search(k{args.search_k})", top_k=args.search_k)
+            log(f"\n=== {sagent.name} ===")
+            for opp in opponents:
+                log(f"vs {opp.name}:")
+                stats = run_match(sagent, opp, args.games, log)
+                results[(sagent.name, opp.name)] = report(f"{sagent.name} vs {opp.name}", stats, log)
 
     # --- RL model ---
     if rl_path.exists():
