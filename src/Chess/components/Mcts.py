@@ -4,6 +4,7 @@ import chess
 import numpy as np
 import torch
 
+from Chess.components.encoding import board_to_array
 from Chess.entity.config_entity import PrepareRlModelConfig
 
 ACTION_SPACE = 64 * 64
@@ -11,15 +12,6 @@ ACTION_SPACE = 64 * 64
 
 def move_index(move: chess.Move) -> int:
     return move.from_square * 64 + move.to_square
-
-
-def board_to_array(board: chess.Board) -> np.ndarray:
-    matrix = np.zeros((8, 8, 12), dtype=np.float32)
-    for square, piece in board.piece_map().items():
-        row, col = divmod(square, 8)
-        channel = (piece.piece_type - 1) + (0 if piece.color else 6)
-        matrix[row, col, channel] = 1.0
-    return matrix
 
 
 class MCTSNode:

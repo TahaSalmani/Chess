@@ -3,6 +3,8 @@ import chess
 import gymnasium as gym
 import numpy as np
 
+from Chess.components.encoding import NUM_PLANES, board_to_array
+
 
 class ChessEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -13,18 +15,13 @@ class ChessEnv(gym.Env):
         self.observation_space = gym.spaces.Box(
             high = 1 ,
             low = 0,
-            shape=(8,8,12) ,
+            shape=(8,8,NUM_PLANES) ,
             dtype = np.float32
         )
         self.action_space = gym.spaces.Discrete(4096)
 
     def board_to_matrix(self):
-        matrix = np.zeros((8, 8, 12), dtype=np.float32)
-        for square, piece in self.board.piece_map().items():
-            row, col = divmod(square, 8)
-            channel = (piece.piece_type - 1) + (0 if piece.color else 6)
-            matrix[row, col, channel] = 1
-        return matrix
+        return board_to_array(self.board)
 
     def reset(self , seed=None, options=None):
         super().reset(seed=seed)
