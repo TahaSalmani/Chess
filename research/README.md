@@ -50,6 +50,24 @@ Read this honestly:
   move ordering / tie-breaks. Making the *network* carry the strength requires a
   working value head + MCTS over multiple self-play rounds (the AlphaZero loop).
 
+## Distillation attempt: failed (do not use)
+
+`distill.py` tried one round of policy iteration — label positions with the
+search's chosen move and fine-tune the policy head on them (AlphaZero's
+policy-target idea, with classical search standing in for MCTS). With a weak
+teacher (depth 1, qdepth 3) and 2 epochs at lr 1e-4 it **regressed everything**:
+
+| agent | before distill | after distill |
+|---|---|---|
+| policy vs random / greedy / minimax-d2 | 72.5% / 15% / 0% | 47.5% / 5% / 2.5% |
+| search vs random / greedy / minimax-d2 | 100% / 97.5% / 97.5% | 97.5% / 97.5% / 80% |
+
+The too-shallow teacher's labels corrupted a prior that was already better than
+them, and the damage propagated into the search player. Original weights are
+preserved at `best_model_pre_distill.pth`; restore them before using `play.py`.
+Distillation is only worth retrying with a teacher at least as strong as the
+target (full-width d2+q4 search, or real MCTS) and a lower learning rate.
+
 ## Known gap / future work
 
 Stage 10 RL is currently **net-negative** (the RL policy scores below the
