@@ -92,3 +92,9 @@ class PrepareRlModelConfig :
     params_dirichlet_alpha : float = 0.3
     params_dirichlet_epsilon : float = 0.25
     params_temp_moves : int = 30
+    # Resignation: end a self-play game once the search's own root value stays
+    # below -threshold for `window` consecutive moves (after `min_moves`), so
+    # hopeless games yield +/-1 instead of drifting to a move-cap draw.
+    params_resign_threshold : float = 0.8
+    params_resign_window : int = 3
+    params_resign_min_moves : int = 30

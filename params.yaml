@@ -29,4 +29,10 @@ VALUE_WEIGHT : 1.0
 DIRICHLET_ALPHA : 0.3
 DIRICHLET_EPSILON : 0.25
 TEMP_MOVES : 30
+# Resignation: a self-play game ends once the search's own root value stays below
+# -RESIGN_THRESHOLD for RESIGN_WINDOW consecutive moves after RESIGN_MIN_MOVES, so
+# hopeless games yield +/-1 value targets instead of drifting to a move-cap draw.
+RESIGN_THRESHOLD : 0.8
+RESIGN_WINDOW : 3
+RESIGN_MIN_MOVES : 30
 

@@ -11,17 +11,56 @@ from Chess.entity.config_entity import PrepareRlModelConfig
 
 
 class SelfPlayGame:
-    __slots__ = ("board", "history", "move_count")
+    __slots__ = ("board", "history", "move_count", "resigned_by", "bad_streak")
 
     def __init__(self):
         self.board = chess.Board()
         self.history = []
         self.move_count = 0
+        self.resigned_by = None
+        self.bad_streak = 0
 
     def is_done(self, max_moves: int) -> bool:
-        return self.board.is_game_over() or self.move_count >= max_moves
+        return (self.resigned_by is not None
+                or self.board.is_game_over()
+                or self.move_count >= max_moves)
+
+    def note_root_value(self, value: float, threshold: float, window: int, min_moves: int) -> bool:
+        """Track the search's own evaluation and resign once it stays hopeless.
+
+        `value` is the root value from the side-to-move's perspective (the sign
+        MCTS backpropagation leaves at the root). Without this, two weak copies
+        of the same net shuffle pieces until the move cap and every game scores
+        0.0, so the value head only ever sees draw targets. Resigning converts
+        those dead games into +/-1 signal. The streak + min_moves guards stop a
+        still-random value head from resigning won or equal positions early.
+        Returns True the moment the game is marked as resigned.
+        """
+        if self.resigned_by is not None:
+            return True
+        if self.move_count < int(min_moves):
+            return False
+        if value < -float(threshold):
+            self.bad_streak += 1
+        else:
+            self.bad_streak = 0
+        if self.bad_streak >= int(window):
+            self.resigned_by = self.board.turn
+            return True
+        return False
+
+    def finish_reason(self) -> str:
+        if self.resigned_by is not None:
+            return "resign"
+        if self.board.is_checkmate():
+            return "checkmate"
+        if self.board.is_game_over():
+            return "draw"
+        return "move-cap"
 
     def result(self) -> float:
+        if self.resigned_by is not None:
+            return -1.0 if self.resigned_by == chess.WHITE else 1.0
         if self.board.is_checkmate():
             return 1.0 if self.board.turn == chess.BLACK else -1.0
         return 0.0
@@ -44,10 +83,14 @@ def generate_self_play_data(model, device, config: PrepareRlModelConfig):
     num_games = int(config.params_num_games)
     max_moves = int(config.params_max_moves)
     pool_size = max(1, min(int(config.params_pool_size), num_games))
+    resign_threshold = float(getattr(config, "params_resign_threshold", 0.8))
+    resign_window = int(getattr(config, "params_resign_window", 3))
+    resign_min_moves = int(getattr(config, "params_resign_min_moves", 30))
 
     logger.info(
         f"Self-play: {num_games} games | {config.params_num_simulation} simulations/move | "
-        f"max {max_moves} moves | {pool_size} games batched per forward"
+        f"max {max_moves} moves | {pool_size} games batched per forward | "
+        f"resign at value < -{resign_threshold} for {resign_window} moves after move {resign_min_moves}"
     )
 
     slots = [SelfPlayGame() for _ in range(pool_size)]
@@ -72,6 +115,11 @@ def generate_self_play_data(model, device, config: PrepareRlModelConfig):
 
         for i, root in zip(active, roots):
             game = slots[i]
+            # the root value is the search's own verdict on the side to move;
+            # a persistently hopeless verdict ends the game with a real +/-1
+            resigned = game.note_root_value(
+                root.value(), resign_threshold, resign_window, resign_min_moves
+            )
             counts = MCTS.visit_counts(root)
             total = counts.sum()
             # early moves sampled by visit-count temperature for diverse data,
@@ -79,7 +127,9 @@ def generate_self_play_data(model, device, config: PrepareRlModelConfig):
             temp = 1.0 if game.move_count < int(config.params_temp_moves) else 0.0
             move = MCTS.sample_move(root, temp)
 
-            if total > 0 and move is not None:
+            if resigned:
+                pass  # no move played; the game finalises below with its resign result
+            elif total > 0 and move is not None:
                 game.history.append((board_to_array(game.board), counts / total, game.board.turn))
                 game.board.push(move)
                 game.move_count += 1
@@ -93,7 +143,7 @@ def generate_self_play_data(model, device, config: PrepareRlModelConfig):
             finished += 1
             logger.info(
                 f"Game {finished}/{num_games} done | {game.move_count} moves | "
-                f"result (White) {game.result():+.1f} | positions {len(all_data)}"
+                f"result (White) {game.result():+.1f} ({game.finish_reason()}) | positions {len(all_data)}"
             )
 
             if started < num_games:
