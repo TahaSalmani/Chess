@@ -98,8 +98,13 @@ class MCTS:
             node.visit_count += 1
             value = -value
 
-    def search_batch(self, roots):
-        """Run `num_simulation` iterations on every root, sharing one forward per iteration."""
+    def search_batch(self, roots, dirichlet_alpha=None, dirichlet_epsilon=0.25):
+        """Run `num_simulation` iterations on every root, sharing one forward per iteration.
+
+        When `dirichlet_alpha` is set, exploration noise is mixed into each root's
+        priors as soon as that root is expanded (self-play only; arena search leaves
+        it None so play strength stays deterministic).
+        """
         if not roots:
             return
 
@@ -140,10 +145,17 @@ class MCTS:
                 for k, i in enumerate(pending):
                     leaf = leaves[i]
                     priors = policy[k][indices[k]]
-                    leaf.children = {
+                    children = {
                         move: MCTSNode(parent=leaf, move=move, prior=float(prior))
                         for move, prior in zip(legal[k], priors)
                     }
+                    # root nodes have parent None: inject Dirichlet exploration noise once
+                    if dirichlet_alpha is not None and leaf.parent is None and children:
+                        noise = np.random.dirichlet([dirichlet_alpha] * len(children))
+                        for j, child in enumerate(children.values()):
+                            child.prior = ((1.0 - dirichlet_epsilon) * child.prior
+                                           + dirichlet_epsilon * float(noise[j]))
+                    leaf.children = children
                     values[i] = float(value[k])
 
             for i, path in enumerate(paths):
@@ -159,6 +171,24 @@ class MCTS:
         if not root.children:
             return None
         return max(root.children.items(), key=lambda item: item[1].visit_count)[0]
+
+    @staticmethod
+    def sample_move(root: MCTSNode, temperature: float):
+        """Pick a move from the root's visit counts. temperature>0 samples
+        proportionally to visits**(1/temp) for diverse self-play; temperature<=0
+        plays argmax (random among ties). Returns None if nothing was visited."""
+        if not root.children:
+            return None
+        items = list(root.children.items())
+        visits = np.array([c.visit_count for _, c in items], dtype=np.float64)
+        if visits.sum() <= 0:
+            return None
+        if temperature <= 0:
+            best = np.flatnonzero(visits == visits.max())
+            return items[int(np.random.choice(best))][0]
+        p = visits ** (1.0 / temperature)
+        p /= p.sum()
+        return items[int(np.random.choice(len(items), p=p))][0]
 
     def get_best_move(self, board: chess.Board):
         root = self.run(board)

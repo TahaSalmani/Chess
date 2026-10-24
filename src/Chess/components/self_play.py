@@ -63,18 +63,25 @@ def generate_self_play_data(model, device, config: PrepareRlModelConfig):
             break
 
         roots = [MCTSNode(board=slots[i].board.copy()) for i in active]
-        mcts.search_batch(roots)
+        mcts.search_batch(
+            roots,
+            dirichlet_alpha=float(config.params_dirichlet_alpha),
+            dirichlet_epsilon=float(config.params_dirichlet_epsilon),
+        )
         rounds += 1
 
         for i, root in zip(active, roots):
             game = slots[i]
             counts = MCTS.visit_counts(root)
             total = counts.sum()
-            best = MCTS.best_move(root)
+            # early moves sampled by visit-count temperature for diverse data,
+            # later moves played as argmax to convert advantages cleanly
+            temp = 1.0 if game.move_count < int(config.params_temp_moves) else 0.0
+            move = MCTS.sample_move(root, temp)
 
-            if total > 0 and best is not None:
+            if total > 0 and move is not None:
                 game.history.append((board_to_array(game.board), counts / total, game.board.turn))
-                game.board.push(best)
+                game.board.push(move)
                 game.move_count += 1
             else:
                 logger.warning(f"Slot {i} produced no visits, retiring that game.")

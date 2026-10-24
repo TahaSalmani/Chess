@@ -26,6 +26,7 @@ def train_rl_step(model, config: PrepareRlModelConfig, device='cpu'):
     batch_size = config.params_batch_size
     lr = config.params_learning_rate
     epochs = config.params_epochs
+    value_weight = float(getattr(config, "params_value_weight", 1.0))
 
     dataset = SelfPlayDataset(config)
     dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
@@ -55,7 +56,7 @@ def train_rl_step(model, config: PrepareRlModelConfig, device='cpu'):
 
             loss_p = cross_entropy(pred_policy, batch_policy)
             loss_v = mse_loss(pred_value, batch_value)
-            loss = loss_p + loss_v
+            loss = loss_p + value_weight * loss_v
 
             loss.backward()
             optimizer.step()

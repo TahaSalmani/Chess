@@ -20,4 +20,13 @@ C_PUCT : 1.5
 POOL_SIZE : 32
 # RL fine-tuning shares EPOCHS/BATCH_SIZE with stage 09 but needs its own, much lower lr.
 RL_LEARNING_RATE : 0.0003
+# AlphaZero-style loop: repeat self-play+train this many rounds so the value head bootstraps.
+RL_ITERATIONS : 3
+# Weight on the value MSE term (policy CE tends to dominate; >1 lets the value head learn).
+VALUE_WEIGHT : 1.0
+# Root exploration noise during self-play (Dirichlet), and how long to sample moves by
+# visit-count temperature before switching to argmax.
+DIRICHLET_ALPHA : 0.3
+DIRICHLET_EPSILON : 0.25
+TEMP_MOVES : 30
 

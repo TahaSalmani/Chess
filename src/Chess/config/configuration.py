@@ -168,5 +168,10 @@ class ConfigurationManager :
             params_batch_size= params.BATCH_SIZE ,
             params_c_puct= params.C_PUCT,
             params_pool_size= int(params.get("POOL_SIZE", 32)),
+            params_rl_iterations= int(params.get("RL_ITERATIONS", 1)),
+            params_value_weight= float(params.get("VALUE_WEIGHT", 1.0)),
+            params_dirichlet_alpha= float(params.get("DIRICHLET_ALPHA", 0.3)),
+            params_dirichlet_epsilon= float(params.get("DIRICHLET_EPSILON", 0.25)),
+            params_temp_moves= int(params.get("TEMP_MOVES", 30)),
         )
         return prepare_rl_config

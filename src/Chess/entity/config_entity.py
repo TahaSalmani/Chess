@@ -86,3 +86,9 @@ class PrepareRlModelConfig :
     params_epochs : int
     params_c_puct : float
     params_pool_size : int
+    # AlphaZero-style loop controls (default to the old single-round behaviour)
+    params_rl_iterations : int = 1
+    params_value_weight : float = 1.0
+    params_dirichlet_alpha : float = 0.3
+    params_dirichlet_epsilon : float = 0.25
+    params_temp_moves : int = 30
