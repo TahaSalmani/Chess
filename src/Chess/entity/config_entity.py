@@ -86,3 +86,15 @@ class PrepareRlModelConfig :
     params_epochs : int
     params_c_puct : float
     params_pool_size : int
+    # AlphaZero-style loop controls (default to the old single-round behaviour)
+    params_rl_iterations : int = 1
+    params_value_weight : float = 1.0
+    params_dirichlet_alpha : float = 0.3
+    params_dirichlet_epsilon : float = 0.25
+    params_temp_moves : int = 30
+    # Resignation: end a self-play game once the search's own root value stays
+    # below -threshold for `window` consecutive moves (after `min_moves`), so
+    # hopeless games yield +/-1 instead of drifting to a move-cap draw.
+    params_resign_threshold : float = 0.8
+    params_resign_window : int = 3
+    params_resign_min_moves : int = 30
