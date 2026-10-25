@@ -15,6 +15,19 @@ network only orders and tie-breaks moves, the search decides.
     python research/play.py --color black    # you play Black
     python research/play.py --depth 3        # stronger, slower
 
+## The browser player: `web_player.py`
+
+The same agent, but as a local web app with a graphical board, pieces and sound
+(no extra dependencies and no image/audio assets - the board is CSS + Unicode
+glyphs and the sounds are synthesised with WebAudio):
+
+    python research/web_player.py            # opens http://127.0.0.1:8765
+
+Click a piece, then a highlighted square. The agent (supervised policy + search)
+answers automatically; captures, check and game-end each play a distinct sound.
+`--color black`, `--depth`, `--qdepth`, `--weights` and `--port` behave as in
+`play.py`.
+
 ## The benchmark: `arena.py`
 
 Plays the models against three opponents of increasing strength and reports
@@ -68,11 +81,43 @@ preserved at `best_model_pre_distill.pth`; restore them before using `play.py`.
 Distillation is only worth retrying with a teacher at least as strong as the
 target (full-width d2+q4 search, or real MCTS) and a lower learning rate.
 
+## The RL loop: two rounds, both rejected (closed)
+
+Stage 10 runs a real AlphaZero-style loop (batched MCTS self-play -> train,
+repeated `RL_ITERATIONS` times, with Dirichlet root noise, visit-count
+temperature sampling and a resignation threshold). Adoption is decided by
+`rl_gate.py`, which plays the RL candidate (MCTS) against the supervised
+policy+search champion with alternating colours and only promotes it to a
+separate `promoted_model.pth` on acceptance; it never touches `best_model.pth`
+(sha-asserted before/after).
+
+Two full rounds were run on Kaggle GPU and both were **rejected**:
+
+| round | change | gate (rl-mcts vs supervised-search) | decision |
+|---|---|---|---|
+| 1 | bootstrap from supervised, 3 iters x 32 games | W0/D5/L5 = 25% | REJECT |
+| 2 | fresh value head + resignation threshold | W0/D0/L20 = 0% | REJECT |
+
+Round 1's self-play pool was ~94% move-cap draws, so value targets were almost
+all 0.0. Round 2 added resignation (end a game once the search's own root value
+stays below -threshold) to convert dead draws into +/-1 signal, but the gate got
+*worse*, not better.
+
+The honest read: the value head cannot bootstrap at this scale. MCTS's PUCT uses
+the value to steer the search, so a near-noise value head actively misleads the
+search below even the classical material search it is wrapped around (hence 0%).
+This is a chicken-and-egg problem - the value head needs a strong policy to
+produce meaningful games, and the supervised policy is too weak to provide them.
+More self-play rounds or threshold tuning will not fix it; a real AlphaZero
+value head needs orders of magnitude more self-play than a free-GPU budget
+allows. **The RL path is closed; the deliverable remains policy + search.**
+
 ## Known gap / future work
 
-Stage 10 RL is currently **net-negative** (the RL policy scores below the
-supervised policy): one small self-play round leaves the value head near noise,
-and MCTS then overrides a decent policy with garbage values. To make the neural
-component carry real strength: run several policy-improvement (self-play)
-iterations with enough games that value targets are non-degenerate, and only
-adopt an RL checkpoint when arena shows `rl-mcts` beating `supervised-search`.
+The neural component is a weak-but-useful prior, not the source of strength:
+most of the player's skill is the classical negamax + quiescence search. Making
+the *network* carry the strength would require the value head + MCTS loop above
+to actually work, which two rejected rounds show is out of reach at this scale.
+If it is ever revisited, the entry point is several policy-improvement
+iterations with enough games that value targets are non-degenerate, adopting a
+checkpoint only when `rl_gate.py` shows `rl-mcts` beating `supervised-search`.
