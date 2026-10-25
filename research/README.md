@@ -15,6 +15,19 @@ network only orders and tie-breaks moves, the search decides.
     python research/play.py --color black    # you play Black
     python research/play.py --depth 3        # stronger, slower
 
+## The browser player: `web_player.py`
+
+The same agent, but as a local web app with a graphical board, pieces and sound
+(no extra dependencies and no image/audio assets - the board is CSS + Unicode
+glyphs and the sounds are synthesised with WebAudio):
+
+    python research/web_player.py            # opens http://127.0.0.1:8765
+
+Click a piece, then a highlighted square. The agent (supervised policy + search)
+answers automatically; captures, check and game-end each play a distinct sound.
+`--color black`, `--depth`, `--qdepth`, `--weights` and `--port` behave as in
+`play.py`.
+
 ## The benchmark: `arena.py`
 
 Plays the models against three opponents of increasing strength and reports
