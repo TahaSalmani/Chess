@@ -121,8 +121,8 @@ HTML = r"""<!doctype html>
   .sq.light{background:var(--light);} .sq.dark{background:var(--dark);}
   .sq.last{background:var(--last);} .sq.sel{background:var(--sel);}
   .sq.check{background:var(--check);}
-  .sq .pc.w{color:#fff; -webkit-text-stroke:2px #141414; text-shadow:0 2px 4px rgba(0,0,0,.55);}
-  .sq .pc.b{color:#141414; -webkit-text-stroke:2px #f5f5f5; text-shadow:0 2px 4px rgba(0,0,0,.45);}
+  .sq .pc.w{color:#fff; text-shadow:0 0 3px rgba(0,0,0,.9), 0 2px 4px rgba(0,0,0,.6);}
+  .sq .pc.b{color:#141414; text-shadow:0 0 3px rgba(255,255,255,.85), 0 2px 4px rgba(0,0,0,.45);}
   .sq.target::after{content:""; position:absolute; width:18px; height:18px; border-radius:50%;
         background:rgba(20,20,20,.28);}
   .sq.target.cap::after{width:52px;height:52px;background:transparent;border:4px solid rgba(20,20,20,.30);}
@@ -332,20 +332,25 @@ def main():
     ap.add_argument("--depth", type=int, default=2)
     ap.add_argument("--qdepth", type=int, default=4)
     ap.add_argument("--weights", default=None)
-    ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8765)))
     ap.add_argument("--no-open", action="store_true")
     args = ap.parse_args()
+
+    # PaaS hosts (Render) inject PORT and require binding all interfaces; a
+    # browser can never be opened from inside a container.
+    host = os.environ.get("HOST", "127.0.0.1" if os.environ.get("PORT") is None else "0.0.0.0")
+    no_open = args.no_open or os.environ.get("PORT") is not None
 
     import torch
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     STATE["agent"] = load_agent(device, args.depth, args.qdepth, weights=args.weights)
     STATE["human_white"] = args.color == "white"
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    url = f"http://127.0.0.1:{args.port}"
+    server = ThreadingHTTPServer((host, args.port), Handler)
+    url = f"http://{host}:{args.port}"
     print(f"serving {url}  (you play {args.color}, agent depth {args.depth}+q{args.qdepth} on {device})")
     print("Ctrl-C to stop.")
-    if not args.no_open:
+    if not no_open:
         webbrowser.open(url)
     try:
         server.serve_forever()
