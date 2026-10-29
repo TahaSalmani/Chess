@@ -1,0 +1,20 @@
+.git
+.gitignore
+__pycache__/
+*.py[cod]
+*.ipynb
+logs/
+logs_*.txt
+_kaggle/
+_tmpcheck/
+kaggle_dl/
+_stage10_batched.txt
+scores.json
+Dockerfile
+.dockerignore
+
+# only the supervised champion weights enter the image
+artifacts/*
+!artifacts/prepare_torch_callbacks/
+artifacts/prepare_torch_callbacks/*
+!artifacts/prepare_torch_callbacks/best_model.pth
