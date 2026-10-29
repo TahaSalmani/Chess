@@ -121,8 +121,8 @@ HTML = r"""<!doctype html>
   .sq.light{background:var(--light);} .sq.dark{background:var(--dark);}
   .sq.last{background:var(--last);} .sq.sel{background:var(--sel);}
   .sq.check{background:var(--check);}
-  .sq .pc.w{color:#fff; text-shadow:0 0 2px #000,0 1px 2px rgba(0,0,0,.6);}
-  .sq .pc.b{color:#1c1c1c; text-shadow:0 1px 1px rgba(255,255,255,.25);}
+  .sq .pc.w{color:#fff; -webkit-text-stroke:2px #141414; text-shadow:0 2px 4px rgba(0,0,0,.55);}
+  .sq .pc.b{color:#141414; -webkit-text-stroke:2px #f5f5f5; text-shadow:0 2px 4px rgba(0,0,0,.45);}
   .sq.target::after{content:""; position:absolute; width:18px; height:18px; border-radius:50%;
         background:rgba(20,20,20,.28);}
   .sq.target.cap::after{width:52px;height:52px;background:transparent;border:4px solid rgba(20,20,20,.30);}
@@ -303,6 +303,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store, max-age=0")
         self.end_headers()
         self.wfile.write(data)
 
