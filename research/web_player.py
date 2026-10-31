@@ -91,7 +91,7 @@ def api_move(uci):
             return {"ok": False, "error": "not your turn"}
         try:
             move = chess.Move.from_uci(uci)
-        except ValueError:
+        except (ValueError, TypeError):
             return {"ok": False, "error": f"unparseable move: {uci}"}
         if move not in board.legal_moves:
             return {"ok": False, "error": f"illegal move: {uci}"}
@@ -237,7 +237,9 @@ function status(){
 async function post(path, body){
   const res = await fetch(path, {method:"POST", headers:{"Content-Type":"application/json"},
                                  body: JSON.stringify(body||{})});
-  return res.json();
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch (e){ return {ok:false, error:"server returned HTTP " + res.status + ": " + text.slice(0,80)}; }
 }
 
 async function click(name){
@@ -245,8 +247,12 @@ async function click(name){
   const mine = (S.turn==="w") === S.human_white;
   if (!mine) return;
   if (selected && name!==selected){
-    const uci = selected + name;
-    if (S.legal.includes(uci)){
+    const base = selected + name;
+    // a board click only gives "a7a8", but promotions are listed as a7a8q/r/b/n
+    const promos = S.legal.filter(u => u.slice(0,4)===base && u.length===5);
+    const uci = S.legal.includes(base) ? base
+              : promos.length ? (promos.find(u => u.endsWith("q")) || promos[0]) : null;
+    if (uci){
       selected = null;
       const r = await post("/api/move", {uci});
       if (!r.ok){ alert(r.error); return; }
