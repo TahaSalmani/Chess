@@ -65,8 +65,9 @@ class PolicySearchAgent:
     """Policy-guided full-width search: a negamax alpha-beta over ALL legal moves
     to a fixed depth, with capture-quiescence and incremental material scoring at
     the leaves. The network policy only orders root moves (for alpha-beta
-    efficiency) and breaks ties -- it never prunes them -- so a competent search
-    can override a weak prior instead of being blinded by it.
+    efficiency) and weights the sample among moves the search scores equally -- it
+    never prunes them -- so a competent search can override a weak prior instead
+    of being blinded by it.
     """
 
     MATE = 100000.0
@@ -94,7 +95,7 @@ class PolicySearchAgent:
             mat += v if p.color == chess.WHITE else -v
         return mat
 
-    def _qsearch(self, board, mat, alpha, beta, depth):
+    def _qsearch(self, board, mat, alpha, beta, depth, ply):
         """Negamax over captures only; returns score for the side to move."""
         stand = mat if board.turn == chess.WHITE else -mat
         if depth == 0:
@@ -108,9 +109,9 @@ class PolicySearchAgent:
             newmat = mat - v if target.color == chess.WHITE else mat + v
             board.push(move)
             if board.is_checkmate():
-                child = -self.MATE  # side to move in child is mated
+                child = -(self.MATE - ply - 1)  # side to move in child is mated
             else:
-                child = self._qsearch(board, newmat, -beta, -alpha, depth - 1)
+                child = self._qsearch(board, newmat, -beta, -alpha, depth - 1, ply + 1)
             board.pop()
             val = -child
             if val > best:
@@ -121,11 +122,11 @@ class PolicySearchAgent:
                     break
         return best
 
-    def _negamax(self, board, mat, depth, alpha, beta):
+    def _negamax(self, board, mat, depth, alpha, beta, ply):
         """Full-width negamax over all legal moves; leaves drop into capture
         quiescence. Returns score for the side to move."""
         if depth == 0:
-            return self._qsearch(board, mat, alpha, beta, self.qdepth)
+            return self._qsearch(board, mat, alpha, beta, self.qdepth, ply)
         best = -self.MATE * 2
         for move in board.legal_moves:
             target = board.piece_at(move.to_square)
@@ -133,11 +134,11 @@ class PolicySearchAgent:
             newmat = mat - v if (target and target.color == chess.WHITE) else mat + v
             board.push(move)
             if board.is_checkmate():
-                child = -self.MATE
+                child = -(self.MATE - ply - 1)
             elif board.is_stalemate():
                 child = 0.0
             else:
-                child = self._negamax(board, newmat, depth - 1, -beta, -alpha)
+                child = self._negamax(board, newmat, depth - 1, -beta, -alpha, ply + 1)
             board.pop()
             val = -child
             if val > best:
@@ -159,26 +160,39 @@ class PolicySearchAgent:
             order = order[: self.top_k]
         mat0 = self._material(board)
 
-        best = None
-        best_score = None
-        for move in (legal[i] for i in order):
+        searched = []
+        for i in order:
+            move = legal[i]
             target = board.piece_at(move.to_square)
             v = PIECE_VALUE.get(target.piece_type, 0) if target else 0
             newmat = mat0 - v if (target and target.color == chess.WHITE) else mat0 + v
             board.push(move)
             if board.is_checkmate():
-                score = self.MATE
+                score = self.MATE - 1
             elif board.is_stalemate():
                 score = -0.5  # do not stalemate a winning position
+            elif board.is_repetition(2):
+                # A material-only leaf cannot tell a shuffle from progress, so the
+                # agent used to repeat checks forever and draw won games away;
+                # treat stepping into a repetition as the draw it is.
+                score = 0.0
             else:
                 # child is from the opponent's perspective; flip to ours
-                score = -self._negamax(board, newmat, self.depth - 1, -self.MATE * 2, self.MATE * 2)
+                score = -self._negamax(board, newmat, self.depth - 1,
+                                       -self.MATE * 2, self.MATE * 2, 1)
             board.pop()
-            # strict > keeps the higher-policy move on ties (order is policy-sorted)
-            if best_score is None or score > best_score:
-                best_score = score
-                best = move
-        return best
+            searched.append((score, i))
+
+        best_score = max(s for s, _ in searched)
+        tied = [i for s, i in searched if s == best_score]
+        if len(tied) == 1:
+            return legal[tied[0]]
+        # Moves the search cannot separate are sampled with the policy prior, so
+        # the agent still plays human-like moves but games are not identical replays.
+        w = np.array([scores[i] for i in tied], dtype=float)
+        w = np.exp(w - w.max())
+        w /= w.sum()
+        return legal[random.choices(tied, weights=w.tolist())[0]]
 
 
 class MctsAgent:
