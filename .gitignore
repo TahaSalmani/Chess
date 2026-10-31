@@ -229,3 +229,8 @@ venv/
 # Datasets
 artifacts/*
 !artifacts/**/*.dvc
+# the supervised champion weights ship with the repo so cloud Docker builds
+# (GitHub Actions -> Docker Hub -> Render) are self-contained
+!artifacts/prepare_torch_callbacks/
+artifacts/prepare_torch_callbacks/*
+!artifacts/prepare_torch_callbacks/best_model.pth

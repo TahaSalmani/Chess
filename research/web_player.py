@@ -91,7 +91,7 @@ def api_move(uci):
             return {"ok": False, "error": "not your turn"}
         try:
             move = chess.Move.from_uci(uci)
-        except ValueError:
+        except (ValueError, TypeError):
             return {"ok": False, "error": f"unparseable move: {uci}"}
         if move not in board.legal_moves:
             return {"ok": False, "error": f"illegal move: {uci}"}
@@ -121,8 +121,8 @@ HTML = r"""<!doctype html>
   .sq.light{background:var(--light);} .sq.dark{background:var(--dark);}
   .sq.last{background:var(--last);} .sq.sel{background:var(--sel);}
   .sq.check{background:var(--check);}
-  .sq .pc.w{color:#fff; -webkit-text-stroke:2px #141414; text-shadow:0 2px 4px rgba(0,0,0,.55);}
-  .sq .pc.b{color:#141414; -webkit-text-stroke:2px #f5f5f5; text-shadow:0 2px 4px rgba(0,0,0,.45);}
+  .sq .pc.w{color:#fff; text-shadow:0 0 3px rgba(0,0,0,.9), 0 2px 4px rgba(0,0,0,.6);}
+  .sq .pc.b{color:#141414; text-shadow:0 0 3px rgba(255,255,255,.85), 0 2px 4px rgba(0,0,0,.45);}
   .sq.target::after{content:""; position:absolute; width:18px; height:18px; border-radius:50%;
         background:rgba(20,20,20,.28);}
   .sq.target.cap::after{width:52px;height:52px;background:transparent;border:4px solid rgba(20,20,20,.30);}
@@ -237,7 +237,9 @@ function status(){
 async function post(path, body){
   const res = await fetch(path, {method:"POST", headers:{"Content-Type":"application/json"},
                                  body: JSON.stringify(body||{})});
-  return res.json();
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch (e){ return {ok:false, error:"server returned HTTP " + res.status + ": " + text.slice(0,80)}; }
 }
 
 async function click(name){
@@ -245,8 +247,12 @@ async function click(name){
   const mine = (S.turn==="w") === S.human_white;
   if (!mine) return;
   if (selected && name!==selected){
-    const uci = selected + name;
-    if (S.legal.includes(uci)){
+    const base = selected + name;
+    // a board click only gives "a7a8", but promotions are listed as a7a8q/r/b/n
+    const promos = S.legal.filter(u => u.slice(0,4)===base && u.length===5);
+    const uci = S.legal.includes(base) ? base
+              : promos.length ? (promos.find(u => u.endsWith("q")) || promos[0]) : null;
+    if (uci){
       selected = null;
       const r = await post("/api/move", {uci});
       if (!r.ok){ alert(r.error); return; }
@@ -332,20 +338,25 @@ def main():
     ap.add_argument("--depth", type=int, default=2)
     ap.add_argument("--qdepth", type=int, default=4)
     ap.add_argument("--weights", default=None)
-    ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8765)))
     ap.add_argument("--no-open", action="store_true")
     args = ap.parse_args()
+
+    # PaaS hosts (Render) inject PORT and require binding all interfaces; a
+    # browser can never be opened from inside a container.
+    host = os.environ.get("HOST", "127.0.0.1" if os.environ.get("PORT") is None else "0.0.0.0")
+    no_open = args.no_open or os.environ.get("PORT") is not None
 
     import torch
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     STATE["agent"] = load_agent(device, args.depth, args.qdepth, weights=args.weights)
     STATE["human_white"] = args.color == "white"
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    url = f"http://127.0.0.1:{args.port}"
+    server = ThreadingHTTPServer((host, args.port), Handler)
+    url = f"http://{host}:{args.port}"
     print(f"serving {url}  (you play {args.color}, agent depth {args.depth}+q{args.qdepth} on {device})")
     print("Ctrl-C to stop.")
-    if not args.no_open:
+    if not no_open:
         webbrowser.open(url)
     try:
         server.serve_forever()

@@ -1,0 +1,5 @@
+python-chess
+numpy
+pyyaml
+python-box==6.0.2
+ensure
