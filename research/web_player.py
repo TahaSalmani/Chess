@@ -6,6 +6,9 @@ sounds - no image or audio assets) and answers moves by reusing the project's
 usable player, `arena.PolicySearchAgent` (supervised policy + material negamax
 and capture-quiescence), via `play.load_agent`.
 
+Every browser gets its own game, keyed by a `sid` cookie, so several people can
+play the same server at once instead of sharing one board.
+
 Usage (from the repo root):
     python research/web_player.py                     # you play White, opens browser
     python research/web_player.py --color black       # you play Black
@@ -18,8 +21,11 @@ Then open the printed URL (default http://127.0.0.1:8765).
 import argparse
 import json
 import os
+import re
 import sys
 import threading
+import time
+import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -30,24 +36,50 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from play import load_agent  # noqa: E402
 
+# One game per browser session. The service is reachable by anyone, so a single
+# shared board would let one visitor reset or hijack everybody else's game.
+COOKIE = "sid"
+MAX_SESSIONS = 200
+SESSION_TTL = 2 * 3600
+
 STATE = {
-    "board": chess.Board(),
-    "lock": threading.Lock(),
+    "lock": threading.Lock(),  # guards the games dict itself, never a search
     "agent": None,
     "human_white": True,
+    "games": {},  # sid -> {"lock", "board", "human_white", "seen"}
 }
 
 
-def _side_to_move_is_human(board):
-    return (board.turn == chess.WHITE) == STATE["human_white"]
+def _prune_locked(now):
+    """Drop expired sessions, then the least recently used ones over the cap."""
+    games = STATE["games"]
+    for sid in [s for s, g in games.items() if now - g["seen"] > SESSION_TTL]:
+        del games[sid]
+    while len(games) > MAX_SESSIONS:
+        del games[min(games, key=lambda s: games[s]["seen"])]
 
 
-def _snapshot(board, human_move=None, ai_move=None):
+def _new_game(now):
+    return {
+        # Per-session lock: the agent search takes seconds, and holding the global
+        # lock across it would queue every other visitor's move behind it.
+        "lock": threading.Lock(),
+        "board": chess.Board(),
+        "human_white": STATE["human_white"],
+        "seen": now,
+    }
+
+
+def _side_to_move_is_human(board, game):
+    return (board.turn == chess.WHITE) == game["human_white"]
+
+
+def _snapshot(board, game, human_move=None, ai_move=None):
     return {
         "fen": board.fen(),
         "legal": [m.uci() for m in board.legal_moves],
         "turn": "w" if board.turn == chess.WHITE else "b",
-        "human_white": STATE["human_white"],
+        "human_white": game["human_white"],
         "human_move": human_move,
         "ai_move": ai_move,
         "check": board.is_check(),
@@ -64,9 +96,9 @@ def _move_info(board, move):
     }
 
 
-def _agent_reply_if_needed(board):
+def _agent_reply_if_needed(board, game):
     """If it is the agent's turn and the game is live, make its move and report it."""
-    if board.is_game_over() or _side_to_move_is_human(board):
+    if board.is_game_over() or _side_to_move_is_human(board, game):
         return None
     move = STATE["agent"].choose(board)
     info = _move_info(board, move)
@@ -74,31 +106,52 @@ def _agent_reply_if_needed(board):
     return info
 
 
-def api_new():
+def api_new(sid):
+    """Start or restart the caller's own game. Returns (status, sid, body)."""
     with STATE["lock"]:
-        STATE["board"] = chess.Board()
-        board = STATE["board"]
-        ai_move = _agent_reply_if_needed(board)
-        return _snapshot(board, human_move=None, ai_move=ai_move)
+        now = time.time()
+        _prune_locked(now)
+        games = STATE["games"]
+        if sid in games:
+            game = games[sid]
+        else:
+            sid = uuid.uuid4().hex
+            game = games[sid] = _new_game(now)
+    with game["lock"]:
+        game["board"] = chess.Board()
+        game["human_white"] = STATE["human_white"]
+        game["seen"] = time.time()
+        ai_move = _agent_reply_if_needed(game["board"], game)
+        return 200, sid, _snapshot(game["board"], game, ai_move=ai_move)
 
 
-def api_move(uci):
+def api_move(sid, uci):
     with STATE["lock"]:
-        board = STATE["board"]
+        game = STATE["games"].get(sid)
+    if game is None:
+        return 409, sid, {"ok": False, "error": "unknown session; start a new game"}
+    with game["lock"]:
+        game["seen"] = time.time()
+        board = game["board"]
         if board.is_game_over():
-            return {"ok": False, "error": "game is over; start a new game"}
-        if not _side_to_move_is_human(board):
-            return {"ok": False, "error": "not your turn"}
+            return 409, sid, {"ok": False, "error": "game is over; start a new game"}
+        if not _side_to_move_is_human(board, game):
+            return 409, sid, {"ok": False, "error": "not your turn"}
         try:
             move = chess.Move.from_uci(uci)
         except (ValueError, TypeError):
-            return {"ok": False, "error": f"unparseable move: {uci}"}
+            return 400, sid, {"ok": False, "error": f"unparseable move: {uci}"}
         if move not in board.legal_moves:
-            return {"ok": False, "error": f"illegal move: {uci}"}
+            return 409, sid, {"ok": False, "error": f"illegal move: {uci}"}
         human_move = _move_info(board, move)
         board.push(move)
-        ai_move = _agent_reply_if_needed(board)
-        return dict(ok=True, **_snapshot(board, human_move=human_move, ai_move=ai_move))
+        ai_move = _agent_reply_if_needed(board, game)
+        snapshot = _snapshot(board, game, human_move=human_move, ai_move=ai_move)
+    with STATE["lock"]:
+        # a prune may have evicted this session while we were searching; the
+        # client's cookie is still valid, so put the game back
+        STATE["games"].setdefault(sid, game)
+    return 200, sid, dict(ok=True, **snapshot)
 
 
 HTML = r"""<!doctype html>
@@ -255,7 +308,11 @@ async function click(name){
     if (uci){
       selected = null;
       const r = await post("/api/move", {uci});
-      if (!r.ok){ alert(r.error); return; }
+      if (!r.ok){
+        // server forgot this session (restart or expired cookie): start over
+        if (r.error && r.error.indexOf("unknown session") === 0){ await newGame(); return; }
+        alert(r.error); return;
+      }
       S = r; sounds(); render(); history();
       return;
     }
@@ -304,14 +361,26 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def _send(self, code, body, ctype):
+    def _send(self, code, body, ctype, sid=None):
         data = body if isinstance(body, bytes) else body.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store, max-age=0")
+        if sid:
+            self.send_header("Set-Cookie", f"{COOKIE}={sid}; Path=/; Max-Age={SESSION_TTL};"
+                                           " HttpOnly; SameSite=Lax")
         self.end_headers()
         self.wfile.write(data)
+
+    def _session_id(self):
+        # Only a well-formed id we issued is accepted; echoing an arbitrary cookie
+        # value back into a Set-Cookie header would allow response splitting.
+        for part in self.headers.get("Cookie", "").split(";"):
+            name, _, value = part.strip().partition("=")
+            if name == COOKIE:
+                return value if re.fullmatch(r"[0-9a-f]{32}", value) else None
+        return None
 
     def do_GET(self):
         self._send(200, HTML, "text/html; charset=utf-8")
@@ -322,14 +391,17 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
         except json.JSONDecodeError:
             payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+        sid = self._session_id()
         if self.path == "/api/new":
-            out = api_new()
+            code, sid, out = api_new(sid)
         elif self.path == "/api/move":
-            out = api_move(payload.get("uci", ""))
+            code, sid, out = api_move(sid, payload.get("uci", ""))
         else:
             self._send(404, json.dumps({"ok": False, "error": "not found"}), "application/json")
             return
-        self._send(200, json.dumps(out), "application/json")
+        self._send(code, json.dumps(out), "application/json", sid=sid)
 
 
 def main():
