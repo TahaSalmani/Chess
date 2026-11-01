@@ -68,9 +68,15 @@ class PolicySearchAgent:
     efficiency) and weights the sample among moves the search scores equally -- it
     never prunes them -- so a competent search can override a weak prior instead
     of being blinded by it.
+
+    The root narrows its window as it goes and inner nodes try MVV-LVA captures
+    first, so clearly-worse moves cut off early instead of being searched
+    exhaustively. This is a pure speed change: scores stay exact, and moves whose
+    bound lands on the best score are re-searched before being counted as ties.
     """
 
     MATE = 100000.0
+    FULL = MATE * 4  # a window no score can reach, i.e. "search exactly"
 
     def __init__(self, model, device, name, top_k=0, depth=2, qdepth=4):
         self.model = model
@@ -95,16 +101,33 @@ class PolicySearchAgent:
             mat += v if p.color == chess.WHITE else -v
         return mat
 
+    def _ordered_moves(self, board, captures_only=False):
+        """Legal moves ordered for alpha-beta: MVV-LVA first (big victim, cheap
+        attacker), promotions with them. Ordering only changes how often the
+        search cuts off, never the score a full-window search returns."""
+        scored = []
+        for m in board.legal_moves:
+            target = board.piece_at(m.to_square)
+            if target is None and captures_only:
+                continue
+            key = 0
+            if target is not None:
+                key += PIECE_VALUE.get(target.piece_type, 0) * 16
+                key -= PIECE_VALUE.get(board.piece_type_at(m.from_square), 0)
+            if m.promotion:
+                key += PIECE_VALUE.get(m.promotion, 0) * 16
+            scored.append((key, m))
+        scored.sort(key=lambda t: -t[0])
+        return [m for _, m in scored]
+
     def _qsearch(self, board, mat, alpha, beta, depth, ply):
         """Negamax over captures only; returns score for the side to move."""
         stand = mat if board.turn == chess.WHITE else -mat
         if depth == 0:
             return stand
         best = stand
-        for move in board.legal_moves:
+        for move in self._ordered_moves(board, captures_only=True):
             target = board.piece_at(move.to_square)
-            if target is None:
-                continue  # tactical search: captures only
             v = PIECE_VALUE.get(target.piece_type, 0)
             newmat = mat - v if target.color == chess.WHITE else mat + v
             board.push(move)
@@ -128,7 +151,7 @@ class PolicySearchAgent:
         if depth == 0:
             return self._qsearch(board, mat, alpha, beta, self.qdepth, ply)
         best = -self.MATE * 2
-        for move in board.legal_moves:
+        for move in self._ordered_moves(board):
             target = board.piece_at(move.to_square)
             v = PIECE_VALUE.get(target.piece_type, 0) if target else 0
             newmat = mat - v if (target and target.color == chess.WHITE) else mat + v
@@ -149,6 +172,36 @@ class PolicySearchAgent:
                     break
         return best
 
+    def _root_search(self, board, move, mat0, alpha, ply=1):
+        """Score one root move from our perspective. Returns (score, exact).
+
+        `exact` is False when the move failed low against `alpha`: the score is
+        then only an upper bound, which is enough to rank it but not enough to
+        call it a tie for the best move.
+        """
+        target = board.piece_at(move.to_square)
+        v = PIECE_VALUE.get(target.piece_type, 0) if target else 0
+        newmat = mat0 - v if (target and target.color == chess.WHITE) else mat0 + v
+        board.push(move)
+        try:
+            if board.is_checkmate():
+                return self.MATE - 1, True
+            if board.is_stalemate():
+                return -0.5, True  # do not stalemate a winning position
+            if board.is_repetition(2):
+                # A material-only leaf cannot tell a shuffle from progress, so the
+                # agent used to repeat checks forever and draw won games away;
+                # treat stepping into a repetition as the draw it is.
+                return 0.0, True
+            # child is from the opponent's perspective; flip to ours
+            score = -self._negamax(board, newmat, self.depth - 1,
+                                   -self.FULL, -alpha, ply)
+        finally:
+            board.pop()
+        # a fail-low bound is <= alpha, so anything above alpha was searched
+        # inside the window and is exact
+        return score, score > alpha
+
     def choose(self, board):
         logits = self._logits(board)
         legal = list(board.legal_moves)
@@ -160,31 +213,26 @@ class PolicySearchAgent:
             order = order[: self.top_k]
         mat0 = self._material(board)
 
-        searched = []
+        # Alpha-beta at the root: each move is searched against the best score so
+        # far instead of an unbounded window, so a move that is clearly worse cuts
+        # off early. A fail-low move only yields an upper bound, so the few moves
+        # whose bound lands exactly on the best score are re-searched exactly
+        # before being called ties -- the tie set is identical to searching every
+        # root move with a full window, only cheaper.
+        best = -self.FULL
+        tied = []
+        maybe = []
         for i in order:
-            move = legal[i]
-            target = board.piece_at(move.to_square)
-            v = PIECE_VALUE.get(target.piece_type, 0) if target else 0
-            newmat = mat0 - v if (target and target.color == chess.WHITE) else mat0 + v
-            board.push(move)
-            if board.is_checkmate():
-                score = self.MATE - 1
-            elif board.is_stalemate():
-                score = -0.5  # do not stalemate a winning position
-            elif board.is_repetition(2):
-                # A material-only leaf cannot tell a shuffle from progress, so the
-                # agent used to repeat checks forever and draw won games away;
-                # treat stepping into a repetition as the draw it is.
-                score = 0.0
-            else:
-                # child is from the opponent's perspective; flip to ours
-                score = -self._negamax(board, newmat, self.depth - 1,
-                                       -self.MATE * 2, self.MATE * 2, 1)
-            board.pop()
-            searched.append((score, i))
+            score, exact = self._root_search(board, legal[i], mat0, best)
+            if score > best:
+                best, tied = score, [i]
+            elif score == best:
+                (tied if exact else maybe).append(i)
+        for i in maybe:
+            if self._root_search(board, legal[i], mat0, -self.FULL)[0] == best:
+                tied.append(i)
 
-        best_score = max(s for s, _ in searched)
-        tied = [i for s, i in searched if s == best_score]
+        tied = [i for i in order if i in set(tied)]  # keep policy order for stable ties
         if len(tied) == 1:
             return legal[tied[0]]
         # Moves the search cannot separate are sampled with the policy prior, so
