@@ -154,6 +154,18 @@ def api_move(sid, uci):
     return 200, sid, dict(ok=True, **snapshot)
 
 
+def api_state(sid):
+    """Current position of the caller's game, without changing it. The page asks
+    for this when it and the server disagree, so it can re-sync silently."""
+    with STATE["lock"]:
+        game = STATE["games"].get(sid)
+    if game is None:
+        return 409, sid, {"ok": False, "error": "unknown session; start a new game"}
+    with game["lock"]:
+        game["seen"] = time.time()
+        return 200, sid, dict(ok=True, **_snapshot(game["board"], game))
+
+
 HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -188,6 +200,7 @@ HTML = r"""<!doctype html>
            font-size:14px; cursor:pointer; }
   button:hover{background:#6ba05a;}
   .muted{color:#9a978f;font-size:12px;}
+  #board.busy{pointer-events:none;opacity:.9;}
 </style>
 </head>
 <body>
@@ -204,7 +217,7 @@ HTML = r"""<!doctype html>
 </div>
 <script>
 const GLYPH = {p:"\u265F", r:"\u265C", n:"\u265E", b:"\u265D", q:"\u265B", k:"\u265A"};
-let S = null, selected = null;
+let S = null, selected = null, busy = false;
 
 // ---- WebAudio-synthesised sounds (no audio files) ----
 let AC = null;
@@ -295,8 +308,28 @@ async function post(path, body){
   catch (e){ return {ok:false, error:"server returned HTTP " + res.status + ": " + text.slice(0,80)}; }
 }
 
+async function get(path){
+  try { return JSON.parse(await (await fetch(path)).text()); }
+  catch (e){ return {ok:false, error:String(e)}; }
+}
+
+function setBusy(on){
+  busy = on;
+  document.getElementById("board").classList.toggle("busy", on);
+  if (on) document.getElementById("status").textContent = "Agent thinking…";
+  else status();
+}
+
+// The client and server disagree (stale tab, expired session, restart): adopt the
+// server's position instead of interrupting the player with an error dialog.
+async function sync(){
+  const s = await get("/api/state");
+  if (!s.ok || !s.fen){ await newGame(); return; }
+  S = s; selected = null; render();
+}
+
 async function click(name){
-  if (S.gameover) return;
+  if (busy || !S || S.gameover) return;
   const mine = (S.turn==="w") === S.human_white;
   if (!mine) return;
   if (selected && name!==selected){
@@ -307,12 +340,10 @@ async function click(name){
               : promos.length ? (promos.find(u => u.endsWith("q")) || promos[0]) : null;
     if (uci){
       selected = null;
+      setBusy(true);
       const r = await post("/api/move", {uci});
-      if (!r.ok){
-        // server forgot this session (restart or expired cookie): start over
-        if (r.error && r.error.indexOf("unknown session") === 0){ await newGame(); return; }
-        alert(r.error); return;
-      }
+      setBusy(false);
+      if (!r.ok){ await sync(); return; }
       S = r; sounds(); render(); history();
       return;
     }
@@ -345,7 +376,10 @@ function history(){
 async function newGame(){
   document.getElementById("hist").textContent = "";
   selected = null;
+  setBusy(true);
   S = await post("/api/new");
+  setBusy(false);
+  if (!S.fen){ document.getElementById("status").textContent = "could not reach the server"; return; }
   if (S.ai_move) setTimeout(()=> (S.ai_move.capture ? sCapture : sMove)(), 120);
   render();
 }
@@ -383,6 +417,10 @@ class Handler(BaseHTTPRequestHandler):
         return None
 
     def do_GET(self):
+        if self.path == "/api/state":
+            code, sid, out = api_state(self._session_id())
+            self._send(code, json.dumps(out), "application/json", sid=sid)
+            return
         self._send(200, HTML, "text/html; charset=utf-8")
 
     def do_POST(self):
